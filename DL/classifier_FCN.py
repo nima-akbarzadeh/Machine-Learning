@@ -82,6 +82,13 @@ class Classifier:
     def train(self):
         n_total_steps = len(self.train_loader)
         for epoch in range(self.num_epochs):
+            # # If loading from a checkpoint is being carried out
+            # # 1. Create the model and optimizer
+            # # 2. Load the state_dict for each
+            # # Since they are part of ImageClassifier, step 1 is skipped
+            # checkpoint = torch.load("./checkpoints/classifier_CNN.pth")
+            # self.model.load_state_dict(checkpoint["model_state"])
+            # self.optimizer.load_state_dict(checkpoint["model_state"])
             for i, (images, labels) in enumerate(self.train_loader):
                 # Convert it to proper size: [n_batch, 784]
                 images = images.reshape(-1, 28 * 28).to(device)
@@ -99,9 +106,17 @@ class Classifier:
                 # Print every 100 optimizer steps
                 if (i + 1) % 100 == 0:
                     print(f'Epoch [{epoch + 1}/{self.num_epochs}], Step [{i + 1}/{n_total_steps}], Loss: {loss.item():.4f}')
-        torch.save(self.model, "models/classifier_FCN.pth")
+            # Two ways to save the models
+            torch.save(self.model.state_dict(), "models/classifier_FCN.pth")
+            # torch.save(self.models, "./models/classifier_FCN.pth")
 
     def test(self):
+        # # If a saved models is being tested either use
+        # # 1. Create the model and load the state_dict
+        # # Since the model is part of ImageClassifier, we just load the state_dict
+        self.model.load_state_dict(torch.load("models/classifier_CNN.pth"))
+        # # 2. Load the whole model
+        # self.models = torch.load("./models/classifier_CNN.pth")
         self.model.eval()
         with torch.no_grad():
             n_correct = 0
