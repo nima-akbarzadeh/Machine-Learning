@@ -97,7 +97,9 @@ class ImageClassifier:
 
         # Scheduler
         # When a metric stopped improving for 'patience' number of epochs, the learning rate is reduced by a factor of 2-10.
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=parameters['lr_update_epochs'], verbose=True)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=parameters['lr_update_epochs'], factor=0.5, verbose=True)
+        # # Reduce the learning rate every num_epochs/10 by 0.75
+        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=self.parameters['num_epochs'], gamma=0.75, verbose=True)
 
         # Other parameters
         self.num_epochs = self.parameters['num_epochs']
@@ -156,6 +158,8 @@ class ImageClassifier:
         # Two ways to save the models
         torch.save(self.model.state_dict(), "models/classifier_CNN.pth")
         # torch.save(self.models, "./models/classifier_CNN.pth")
+
+        self.scheduler.step()
 
     def test(self):
         # # If a saved models is being tested either use

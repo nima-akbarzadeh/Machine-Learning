@@ -40,6 +40,18 @@ class NeuralNet(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
+            elif isinstance(m, nn.RNN):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.GRU):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.LSTM):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
             elif isinstance(m, nn.Linear):
                 nn.init.kaiming_uniform_(m.weight)
                 nn.init.constant_(m.bias, 0)
@@ -74,7 +86,9 @@ class Classifier:
 
         # Scheduler
         # When a metric stopped improving for 'patience' number of epochs, the learning rate is reduced by a factor of 2-10.
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=parameters['lr_update_epochs'], verbose=True)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=parameters['lr_update_epochs'], factor=0.5, verbose=True)
+        # # Reduce the learning rate every num_epochs/10 by 0.75
+        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=self.parameters['num_epochs'], gamma=0.75, verbose=True)
 
         # Other parameters
         self.num_epochs = parameters['num_epochs']
@@ -106,9 +120,12 @@ class Classifier:
                 # Print every 100 optimizer steps
                 if (i + 1) % 100 == 0:
                     print(f'Epoch [{epoch + 1}/{self.num_epochs}], Step [{i + 1}/{n_total_steps}], Loss: {loss.item():.4f}')
+
             # Two ways to save the models
             torch.save(self.model.state_dict(), "models/classifier_FCN.pth")
             # torch.save(self.models, "./models/classifier_FCN.pth")
+
+            self.scheduler.step()
 
     def test(self):
         # # If a saved models is being tested either use

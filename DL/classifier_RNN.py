@@ -9,25 +9,36 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class RNN_ManyToOne(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, num_classes):
+    def __init__(self, input_size, hidden_size, num_layers, num_classes, bi_flag):
         super(RNN_ManyToOne, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
+        self.bi_flag = bi_flag
 
         # batch_first=True checks if the batch_size is put as the first dimension
         # In fact, input needs to be: (batch_size, seq_length, input_size)
-        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True)
+        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True, bidirectional=bi_flag)
 
-        self.fc = nn.Linear(hidden_size, num_classes)
+        if bi_flag:
+            self.fc = nn.Linear(2 * hidden_size, num_classes)
+        else:
+            self.fc = nn.Linear(hidden_size, num_classes)
+
+        self.initialize_weights()
 
     def forward(self, x):
         # x: tensor of shape (batch_size, seq_length, input_size)
         # x: (n_batch, 28, 28)
 
         # Set initial hidden states
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
-        # h0: tensor of shape (num_layers, batch_size, hidden_size)
-        # h0: (2, n_batch, 128)
+        if self.bi_flag:
+            h0 = torch.zeros(2 * self.num_layers, x.size(0), self.hidden_size).to(device)
+            # h0: tensor of shape (2*num_layers, batch_size, hidden_size)
+            # h0: (4, n_batch, 128)
+        else:
+            h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+            # h0: tensor of shape (num_layers, batch_size, hidden_size)
+            # h0: (2, n_batch, 128)
 
         # Forward propagate RNN
         out, _ = self.rnn(x, h0)
@@ -44,27 +55,65 @@ class RNN_ManyToOne(nn.Module):
 
         return out
 
+    def initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.RNN):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.GRU):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.LSTM):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
 
 class RNN_ManyToMany(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, sequence_length, num_classes):
+    def __init__(self, input_size, hidden_size, num_layers, sequence_length, num_classes, bi_flag):
         super(RNN_ManyToMany, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
+        self.bi_flag = bi_flag
 
         # batch_first=True checks if the batch_size is put as the first dimension
         # In fact, input needs to be: (batch_size, seq_length, input_size)
-        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True)
+        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True, bidirectional=self.bi_flag)
 
-        self.fc = nn.Linear(hidden_size * sequence_length, num_classes)
+        if bi_flag:
+            self.fc = nn.Linear(2 * hidden_size * sequence_length, num_classes)
+        else:
+            self.fc = nn.Linear(hidden_size * sequence_length, num_classes)
+
+        self.initialize_weights()
 
     def forward(self, x):
         # x: tensor of shape (batch_size, seq_length, input_size)
         # x: (n_batch, 28, 28)
 
         # Set initial hidden states
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
-        # h0: tensor of shape (num_layers, batch_size, hidden_size)
-        # h0: (2, n_batch, 128)
+        if self.bi_flag:
+            h0 = torch.zeros(2 * self.num_layers, x.size(0), self.hidden_size).to(device)
+            # h0: tensor of shape (2*num_layers, batch_size, hidden_size)
+            # h0: (4, n_batch, 128)
+        else:
+            h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+            # h0: tensor of shape (num_layers, batch_size, hidden_size)
+            # h0: (2, n_batch, 128)
 
         # Forward propagate RNN
         out, _ = self.rnn(x, h0)
@@ -81,30 +130,71 @@ class RNN_ManyToMany(nn.Module):
 
         return out
 
+    def initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.RNN):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.GRU):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.LSTM):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
 
 class LSTM_ManyToOne(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, num_classes):
+    def __init__(self, input_size, hidden_size, num_layers, num_classes, bi_flag):
         super(LSTM_ManyToOne, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
+        self.bi_flag = bi_flag
 
         # batch_first=True checks if the batch_size is put as the first dimension
         # In fact, input needs to be: (batch_size, seq, input_size)
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=self.bi_flag)
 
-        self.fc = nn.Linear(hidden_size, num_classes)
+        if bi_flag:
+            self.fc = nn.Linear(2 * hidden_size, num_classes)
+        else:
+            self.fc = nn.Linear(hidden_size, num_classes)
+
+        self.initialize_weights()
 
     def forward(self, x):
         # x: tensor of shape (batch_size, seq_length, input_size)
         # x: (n_batch, 28, 28)
 
         # Set initial hidden states (and cell states for LSTM)
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
-        # h0: tensor of shape (num_layers, batch_size, hidden_size)
-        # c0: tensor of shape (num_layers, batch_size, hidden_size)
-        # h0: (2, n_batch, 128)
-        # h0: (2, n_batch, 128)
+        if self.bi_flag:
+            h0 = torch.zeros(2 * self.num_layers, x.size(0), self.hidden_size).to(device)
+            c0 = torch.zeros(2 * self.num_layers, x.size(0), self.hidden_size).to(device)
+            # h0: tensor of shape (2*num_layers, batch_size, hidden_size)
+            # c0: tensor of shape (2*num_layers, batch_size, hidden_size)
+            # h0: (4, n_batch, 128)
+            # h0: (4, n_batch, 128)
+        else:
+            h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+            c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+            # h0: tensor of shape (num_layers, batch_size, hidden_size)
+            # c0: tensor of shape (num_layers, batch_size, hidden_size)
+            # h0: (2, n_batch, 128)
+            # h0: (2, n_batch, 128)
 
         # Forward propagate RNN
         out, _ = self.lstm(x, (h0, c0))
@@ -121,30 +211,71 @@ class LSTM_ManyToOne(nn.Module):
 
         return out
 
+    def initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.RNN):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.GRU):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.LSTM):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
 
 class LSTM_ManyToMany(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, sequence_length, num_classes):
+    def __init__(self, input_size, hidden_size, num_layers, sequence_length, num_classes, bi_flag):
         super(LSTM_ManyToMany, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
+        self.bi_flag = bi_flag
 
         # batch_first=True checks if the batch_size is put as the first dimension
-        # In fact, input needs to be: (batch_size, seq_length, input_size)
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        # In fact, input needs to be: (batch_size, seq, input_size)
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=self.bi_flag)
 
-        self.fc = nn.Linear(hidden_size * sequence_length, num_classes)
+        if bi_flag:
+            self.fc = nn.Linear(2 * hidden_size * sequence_length, num_classes)
+        else:
+            self.fc = nn.Linear(hidden_size * sequence_length, num_classes)
+
+        self.initialize_weights()
 
     def forward(self, x):
         # x: tensor of shape (batch_size, seq_length, input_size)
         # x: (n_batch, 28, 28)
 
         # Set initial hidden & cell states
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
-        # h0: tensor of shape (num_layers, batch_size, hidden_size)
-        # c0: tensor of shape (num_layers, batch_size, hidden_size)
-        # h0: (2, n_batch, 128)
-        # c0: (2, n_batch, 128)
+        if self.bi_flag:
+            h0 = torch.zeros(2 * self.num_layers, x.size(0), self.hidden_size).to(device)
+            c0 = torch.zeros(2 * self.num_layers, x.size(0), self.hidden_size).to(device)
+            # h0: tensor of shape (2*num_layers, batch_size, hidden_size)
+            # c0: tensor of shape (2*num_layers, batch_size, hidden_size)
+            # h0: (4, n_batch, 128)
+            # h0: (4, n_batch, 128)
+        else:
+            h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+            c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+            # h0: tensor of shape (num_layers, batch_size, hidden_size)
+            # c0: tensor of shape (num_layers, batch_size, hidden_size)
+            # h0: (2, n_batch, 128)
+            # h0: (2, n_batch, 128)
 
         # Forward propagate RNN
         out, _ = self.lstm(x, (h0, c0))
@@ -161,27 +292,65 @@ class LSTM_ManyToMany(nn.Module):
 
         return out
 
+    def initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.RNN):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.GRU):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.LSTM):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
 
 class GRU_ManyToOne(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, num_classes):
+    def __init__(self, input_size, hidden_size, num_layers, num_classes, bi_flag):
         super(GRU_ManyToOne, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
+        self.bi_flag = bi_flag
 
         # batch_first=True checks if the batch_size is put as the first dimension
         # In fact, input needs to be: (batch_size, seq, input_size)
-        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True)
+        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, bidirectional=bi_flag)
 
-        self.fc = nn.Linear(hidden_size, num_classes)
+        if bi_flag:
+            self.fc = nn.Linear(2 * hidden_size, num_classes)
+        else:
+            self.fc = nn.Linear(hidden_size, num_classes)
+
+        self.initialize_weights()
 
     def forward(self, x):
         # x: tensor of shape (batch_size, seq_length, input_size)
         # x: (n_batch, 28, 28)
 
         # Set initial hidden states (and cell states for LSTM)
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
-        # h0: tensor of shape (num_layers, batch_size, hidden_size)
-        # h0: (2, n_batch, 128)
+        if self.bi_flag:
+            h0 = torch.zeros(2 * self.num_layers, x.size(0), self.hidden_size).to(device)
+            # h0: tensor of shape (2*num_layers, batch_size, hidden_size)
+            # h0: (4, n_batch, 128)
+        else:
+            h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+            # h0: tensor of shape (num_layers, batch_size, hidden_size)
+            # h0: (2, n_batch, 128)
 
         # Forward propagate RNN
         out, _ = self.gru(x, h0)
@@ -198,27 +367,65 @@ class GRU_ManyToOne(nn.Module):
 
         return out
 
+    def initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.RNN):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.GRU):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.LSTM):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
 
 class GRU_ManyToMany(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, sequence_length, num_classes):
+    def __init__(self, input_size, hidden_size, num_layers, sequence_length, num_classes, bi_flag):
         super(GRU_ManyToMany, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
+        self.bi_flag = bi_flag
 
         # batch_first=True checks if the batch_size is put as the first dimension
         # In fact, input needs to be: (batch_size, seq_length, input_size)
-        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True)
+        self.rnn = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, bidirectional=bi_flag)
 
-        self.fc = nn.Linear(hidden_size * sequence_length, num_classes)
+        if bi_flag:
+            self.fc = nn.Linear(2 * hidden_size * sequence_length, num_classes)
+        else:
+            self.fc = nn.Linear(hidden_size * sequence_length, num_classes)
+
+        self.initialize_weights()
 
     def forward(self, x):
         # x: tensor of shape (batch_size, seq_length, input_size)
         # x: (n_batch, 28, 28)
 
         # Set initial hidden states
-        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
-        # h0: tensor of shape (num_layers, batch_size, hidden_size)
-        # h0: (2, n_batch, 128)
+        if self.bi_flag:
+            h0 = torch.zeros(2 * self.num_layers, x.size(0), self.hidden_size).to(device)
+            # h0: tensor of shape (2*num_layers, batch_size, hidden_size)
+            # h0: (4, n_batch, 128)
+        else:
+            h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(device)
+            # h0: tensor of shape (num_layers, batch_size, hidden_size)
+            # h0: (2, n_batch, 128)
 
         # Forward propagate RNN
         out, _ = self.rnn(x, h0)
@@ -234,6 +441,33 @@ class GRU_ManyToMany(nn.Module):
         # out: (n_batch, 10)
 
         return out
+
+    def initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.RNN):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.GRU):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.LSTM):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
 
 
 # Model training and prediction
@@ -272,7 +506,9 @@ class Classifier:
 
         # Scheduler
         # When a metric stopped improving for 'patience' number of epochs, the learning rate is reduced by a factor of 2-10.
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=parameters['lr_update_epochs'], verbose=True)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=parameters['lr_update_epochs'], factor=0.5, verbose=True)
+        # # Reduce the learning rate every num_epochs/10 by 0.75
+        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=self.parameters['num_epochs'], gamma=0.75, verbose=True)
 
         # Other parameters
         self.num_epochs = parameters['num_epochs']
@@ -309,6 +545,8 @@ class Classifier:
             # Two ways to save the models
             torch.save(self.model.state_dict(), "models/classifier_FCN.pth")
             # torch.save(self.models, "./models/classifier_FCN.pth")
+
+            self.scheduler.step()
 
     def test(self):
         # # If a saved models is being tested either use
