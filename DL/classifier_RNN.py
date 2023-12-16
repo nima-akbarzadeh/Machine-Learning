@@ -9,7 +9,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class RNN_ManyToOne(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, num_classes, bi_flag):
+    def __init__(self, input_size, hidden_size, num_layers, num_classes, bi_flag, drop_prob):
         super(RNN_ManyToOne, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
@@ -17,7 +17,8 @@ class RNN_ManyToOne(nn.Module):
 
         # batch_first=True checks if the batch_size is put as the first dimension
         # In fact, input needs to be: (batch_size, seq_length, input_size)
-        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True, bidirectional=bi_flag)
+        self.rnn = nn.RNN(input_size, hidden_size, num_layers,
+                          batch_first=True,  bidirectional=self.bi_flag, dropout=drop_prob)
 
         if bi_flag:
             self.fc = nn.Linear(2 * hidden_size, num_classes)
@@ -84,7 +85,7 @@ class RNN_ManyToOne(nn.Module):
 
 
 class RNN_ManyToMany(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, sequence_length, num_classes, bi_flag):
+    def __init__(self, input_size, hidden_size, num_layers, sequence_length, num_classes, bi_flag, drop_prob):
         super(RNN_ManyToMany, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
@@ -92,7 +93,8 @@ class RNN_ManyToMany(nn.Module):
 
         # batch_first=True checks if the batch_size is put as the first dimension
         # In fact, input needs to be: (batch_size, seq_length, input_size)
-        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True, bidirectional=self.bi_flag)
+        self.rnn = nn.RNN(input_size, hidden_size, num_layers,
+                          batch_first=True, bidirectional=self.bi_flag, dropout=drop_prob)
 
         if bi_flag:
             self.fc = nn.Linear(2 * hidden_size * sequence_length, num_classes)
@@ -159,7 +161,7 @@ class RNN_ManyToMany(nn.Module):
 
 
 class LSTM_ManyToOne(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, num_classes, bi_flag):
+    def __init__(self, input_size, hidden_size, num_layers, num_classes, bi_flag, drop_prob):
         super(LSTM_ManyToOne, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
@@ -167,7 +169,8 @@ class LSTM_ManyToOne(nn.Module):
 
         # batch_first=True checks if the batch_size is put as the first dimension
         # In fact, input needs to be: (batch_size, seq, input_size)
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=self.bi_flag)
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers,
+                            batch_first=True, bidirectional=self.bi_flag, dropout=drop_prob)
 
         if bi_flag:
             self.fc = nn.Linear(2 * hidden_size, num_classes)
@@ -240,7 +243,7 @@ class LSTM_ManyToOne(nn.Module):
 
 
 class LSTM_ManyToMany(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, sequence_length, num_classes, bi_flag):
+    def __init__(self, input_size, hidden_size, num_layers, sequence_length, num_classes, bi_flag, drop_prob):
         super(LSTM_ManyToMany, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
@@ -248,7 +251,8 @@ class LSTM_ManyToMany(nn.Module):
 
         # batch_first=True checks if the batch_size is put as the first dimension
         # In fact, input needs to be: (batch_size, seq, input_size)
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, bidirectional=self.bi_flag)
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers,
+                            batch_first=True, bidirectional=self.bi_flag, dropout=drop_prob)
 
         if bi_flag:
             self.fc = nn.Linear(2 * hidden_size * sequence_length, num_classes)
@@ -321,7 +325,7 @@ class LSTM_ManyToMany(nn.Module):
 
 
 class GRU_ManyToOne(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, num_classes, bi_flag):
+    def __init__(self, input_size, hidden_size, num_layers, num_classes, bi_flag, drop_prob):
         super(GRU_ManyToOne, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
@@ -329,7 +333,8 @@ class GRU_ManyToOne(nn.Module):
 
         # batch_first=True checks if the batch_size is put as the first dimension
         # In fact, input needs to be: (batch_size, seq, input_size)
-        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, bidirectional=bi_flag)
+        self.gru = nn.GRU(input_size, hidden_size, num_layers,
+                          batch_first=True, bidirectional=self.bi_flag, dropout=drop_prob)
 
         if bi_flag:
             self.fc = nn.Linear(2 * hidden_size, num_classes)
@@ -396,7 +401,7 @@ class GRU_ManyToOne(nn.Module):
 
 
 class GRU_ManyToMany(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, sequence_length, num_classes, bi_flag):
+    def __init__(self, input_size, hidden_size, num_layers, sequence_length, num_classes, bi_flag, drop_prob):
         super(GRU_ManyToMany, self).__init__()
         self.num_layers = num_layers
         self.hidden_size = hidden_size
@@ -404,7 +409,8 @@ class GRU_ManyToMany(nn.Module):
 
         # batch_first=True checks if the batch_size is put as the first dimension
         # In fact, input needs to be: (batch_size, seq_length, input_size)
-        self.rnn = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, bidirectional=bi_flag)
+        self.rnn = nn.GRU(input_size, hidden_size, num_layers,
+                          batch_first=True, bidirectional=self.bi_flag, dropout=drop_prob)
 
         if bi_flag:
             self.fc = nn.Linear(2 * hidden_size * sequence_length, num_classes)
@@ -490,12 +496,18 @@ class Classifier:
         self.sequence_length = 28
         num_classes = len(class_labels)
         hidden_size = parameters['hidden_size']
-        self.model = RNN_ManyToOne(self.input_size, hidden_size, parameters['num_layers'], num_classes).to(device)
-        # self.model = RNN_ManyToMany(self.input_size, hidden_size, parameters['num_layers'], self.sequence_length, num_classes).to(device)
-        # self.model = LSTM_ManyToOne(self.input_size, hidden_size, parameters['num_layers'], num_classes).to(device)
-        # self.model = LSTM_ManyToMany(self.input_size, hidden_size, parameters['num_layers'], self.sequence_length, num_classes).to(device)
-        # self.model = GRU_ManyToOne(self.input_size, hidden_size, parameters['num_layers'], num_classes).to(device)
-        # self.model = GRU_ManyToMany(self.input_size, hidden_size, parameters['num_layers'], self.sequence_length, num_classes).to(device)
+        self.model = RNN_ManyToOne(self.input_size, hidden_size, parameters['num_layers'],
+                                   num_classes, parameters['bidirect_flag'], parameters['dropout_prob']).to(device)
+        # self.model = RNN_ManyToMany(self.input_size, hidden_size, parameters['num_layers'], self.sequence_length,
+        #                             num_classes, parameters['bidirect_flag'], parameters['dropout_prob']).to(device)
+        # self.model = LSTM_ManyToOne(self.input_size, hidden_size, parameters['num_layers'],
+        #                             num_classes, parameters['bidirect_flag'], parameters['dropout_prob']).to(device)
+        # self.model = LSTM_ManyToMany(self.input_size, hidden_size, parameters['num_layers'], self.sequence_length,
+        #                              num_classes, parameters['bidirect_flag'], parameters['dropout_prob']).to(device)
+        # self.model = GRU_ManyToOne(self.input_size, hidden_size, parameters['num_layers'],
+        #                            num_classes, parameters['bidirect_flag'], parameters['dropout_prob']).to(device)
+        # self.model = GRU_ManyToMany(self.input_size, hidden_size, parameters['num_layers'], self.sequence_length,
+        #                             num_classes, parameters['bidirect_flag'], parameters['dropout_prob']).to(device)
 
         # Loss
         self.criterion = nn.CrossEntropyLoss()
@@ -524,6 +536,7 @@ class Classifier:
             # checkpoint = torch.load("./checkpoints/classifier_CNN.pth")
             # self.model.load_state_dict(checkpoint["model_state"])
             # self.optimizer.load_state_dict(checkpoint["model_state"])
+            losses = []
             for i, (images, labels) in enumerate(self.train_loader):
                 # origin shape: [N, 1, 28, 28]
                 # resized: [N, 28, 28]
@@ -533,6 +546,7 @@ class Classifier:
                 # Forward pass
                 outputs = self.model(images)
                 loss = self.criterion(outputs, labels)
+                losses.append(loss.item())
 
                 # Backward and optimize
                 self.optimizer.zero_grad()
@@ -542,11 +556,14 @@ class Classifier:
                 # Print every 100 optimizer steps
                 if (i + 1) % 100 == 0:
                     print(f'Epoch [{epoch + 1}/{self.num_epochs}], Step [{i + 1}/{n_total_steps}], Loss: {loss.item():.4f}')
+
+            mean_loss = sum(losses) / len(losses)
+            self.scheduler.step(metrics=mean_loss)
+
             # Two ways to save the models
             torch.save(self.model.state_dict(), "models/classifier_FCN.pth")
             # torch.save(self.models, "./models/classifier_FCN.pth")
 
-            self.scheduler.step()
 
     def test(self):
         # # If a saved models is being tested either use
@@ -580,6 +597,8 @@ if __name__ == "__main__":
         'num_epochs': 2,
         'batch_size': 100,
         'learning_rate': 0.001,
+        'bidirect_flag': False,
+        'dropout_prob': 0.25,
     }
 
     dataset_name = 'mnist'

@@ -120,6 +120,7 @@ class ImageClassifier:
             # checkpoint = torch.load("./checkpoints/classifier_CNN.pth")
             # self.model.load_state_dict(checkpoint["model_state"])
             # self.optimizer.load_state_dict(checkpoint["model_state"])
+            losses = []
             for i, (images, labels) in enumerate(self.train_loader):
                 # Call the data
                 images = images.to(device)
@@ -128,6 +129,7 @@ class ImageClassifier:
                 # Forward pass
                 outputs = self.model(images)
                 loss = self.criterion(outputs, labels)
+                losses.append(loss.item())
 
                 # Backward and optimize
                 self.optimizer.zero_grad()
@@ -146,6 +148,8 @@ class ImageClassifier:
                     training_loss = 0.0
                     training_correct_preds = 0
 
+            mean_loss = sum(losses) / len(losses)
+            self.scheduler.step(metrics=mean_loss)
 
             # Save data if training is interrupted
             checkpoint = {
@@ -158,8 +162,6 @@ class ImageClassifier:
         # Two ways to save the models
         torch.save(self.model.state_dict(), "models/classifier_CNN.pth")
         # torch.save(self.models, "./models/classifier_CNN.pth")
-
-        self.scheduler.step()
 
     def test(self):
         # # If a saved models is being tested either use

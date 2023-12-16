@@ -103,6 +103,7 @@ class Classifier:
             # checkpoint = torch.load("./checkpoints/classifier_CNN.pth")
             # self.model.load_state_dict(checkpoint["model_state"])
             # self.optimizer.load_state_dict(checkpoint["model_state"])
+            losses = []
             for i, (images, labels) in enumerate(self.train_loader):
                 # Convert it to proper size: [n_batch, 784]
                 images = images.reshape(-1, 28 * 28).to(device)
@@ -111,6 +112,7 @@ class Classifier:
                 # Forward pass
                 outputs = self.model(images)
                 loss = self.criterion(outputs, labels)
+                losses.append(loss.item())
 
                 # Backward and optimize
                 self.optimizer.zero_grad()
@@ -121,11 +123,12 @@ class Classifier:
                 if (i + 1) % 100 == 0:
                     print(f'Epoch [{epoch + 1}/{self.num_epochs}], Step [{i + 1}/{n_total_steps}], Loss: {loss.item():.4f}')
 
+            mean_loss = sum(losses) / len(losses)
+            self.scheduler.step(metrics=mean_loss)
+
             # Two ways to save the models
             torch.save(self.model.state_dict(), "models/classifier_FCN.pth")
             # torch.save(self.models, "./models/classifier_FCN.pth")
-
-            self.scheduler.step()
 
     def test(self):
         # # If a saved models is being tested either use
