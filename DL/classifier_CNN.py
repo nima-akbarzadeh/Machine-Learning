@@ -69,12 +69,11 @@ class ConvNet(nn.Module):
 
 # Model training and prediction
 class ImageClassifier:
-    def __init__(self, parameters, dataset_name, writer):
+    def __init__(self, model_params, hyper_params, dataset_name, writer, device):
 
         # Dataset loader
-        self.parameters = parameters
         train_set, test_set, self.class_labels = load_classification_data(dataset_name)
-        self.batch_size = self.parameters['batch_size']
+        self.batch_size = hyper_params['batch_size']
         self.train_loader = DataLoader(dataset=train_set,
                                        batch_size=self.batch_size,
                                        shuffle=True)
@@ -85,24 +84,28 @@ class ImageClassifier:
         # Model initialization
         self.input_size = 32
         self.num_classes = len(self.class_labels)
-        self.hidden_size = self.parameters['hidden_size']
+        self.hidden_size = model_params['hidden_size']
         self.model = ConvNet(input_size=self.input_size, hidden_size=self.hidden_size, num_classes=self.num_classes).to(device)
 
         # Loss
         self.criterion = nn.CrossEntropyLoss()
 
         # Optimizer
-        learning_rate = self.parameters['learning_rate']
+        learning_rate = hyper_params['learning_rate']
         self.optimizer = optim.SGD(self.model.parameters(), lr=learning_rate)
+
+        # Scaler: helps to reduce RAM and train faster
+        self.scaler = torch.cuda.amp.GradScaler()
 
         # Scheduler
         # When a metric stopped improving for 'patience' number of epochs, the learning rate is reduced by a factor of 2-10.
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=parameters['lr_update_epochs'], factor=0.5, verbose=True)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=0.1*hyper_params['num_epochs'], factor=0.5, verbose=True)
         # # Reduce the learning rate every num_epochs/10 by 0.75
-        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=self.parameters['num_epochs'], gamma=0.75, verbose=True)
+        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=hyper_params['num_epochs'], gamma=0.75, verbose=True)
 
         # Other parameters
-        self.num_epochs = self.parameters['num_epochs']
+        self.num_epochs = hyper_params['num_epochs']
+        self.device = device
 
         # Tensorboard
         self.writer = writer
@@ -123,18 +126,34 @@ class ImageClassifier:
             losses = []
             for i, (images, labels) in enumerate(self.train_loader):
                 # Call the data
-                images = images.to(device)
-                labels = labels.to(device)
+                images = images.to(self.device)
+                labels = labels.to(self.device)
 
                 # Forward pass
-                outputs = self.model(images)
-                loss = self.criterion(outputs, labels)
-                losses.append(loss.item())
+                if self.device == 'cpu':
+                    # Compute the loss
+                    outputs = self.model(images)
+                    loss = self.criterion(outputs, labels)
+                    losses.append(loss.item())
 
-                # Backward and optimize
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
+                    # Backward and optimize
+                    self.optimizer.zero_grad()
+                    loss.backward()
+                    self.optimizer.step()
+
+                else:
+
+                    with torch.cuda.amp.autocast():
+                        # Compute the loss
+                        outputs = self.model(images)
+                        loss = self.criterion(outputs, labels)
+                        losses.append(loss.item())
+
+                        # Backward and optimize
+                        self.optimizer.zero_grad()
+                        self.scaler.scale(loss).backward()
+                        self.scaler.step(self.optimizer)
+                        self.scaler.update()
 
                 training_loss += loss.item()
                 _, predicted = torch.max(outputs.data, 1)
@@ -180,8 +199,8 @@ class ImageClassifier:
             n_class_correct = [0] * self.num_classes
             n_class_samples = [0] * self.num_classes
             for images, labels in self.test_loader:
-                images = images.to(device)
-                labels = labels.to(device)
+                images = images.to(self.device)
+                labels = labels.to(self.device)
                 outputs = self.model(images)
                 _, predicted = torch.max(outputs, 1)
                 n_samples += labels.size(0)
@@ -224,13 +243,16 @@ if __name__ == "__main__":
     # Device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # Parameters
-    parameters = {
+    # Model parameters
+    model_params = {
         'hidden_size': 500,
+    }
+
+    # Hyper parameters
+    hyper_params = {
         'num_epochs': 10,
         'batch_size': 32,
         'learning_rate': 0.001,
-        'lr_update_epochs': 2,
     }
 
     # Dataset
@@ -239,7 +261,7 @@ if __name__ == "__main__":
     # Tensorboard
     writer = SummaryWriter(f"runs/{dataset_name}")
 
-    # Learning
-    IMG_CLASS = ImageClassifier(parameters, dataset_name, writer)
+    # # Training & Testing
+    IMG_CLASS = ImageClassifier(model_params, hyper_params, dataset_name, writer, device)
     IMG_CLASS.train()
     IMG_CLASS.test()

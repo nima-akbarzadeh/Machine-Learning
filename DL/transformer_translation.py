@@ -66,7 +66,7 @@ class Transformer(nn.Module):
 
 
 class Translator:
-    def __init__(self, tokenizers, hyper_parameters, model_parameters, device):
+    def __init__(self, model_parameters, hyper_parameters, tokenizers, device):
         self.test_data = None
         spacy_src = spacy.load(tokenizers[0])
         spacy_tgt = spacy.load(tokenizers[1])
@@ -106,6 +106,9 @@ class Translator:
         # Optimizer
         self.optimizer = optim.Adam(self.model.parameters(), lr=hyper_parameters['learning_rate'])
 
+        # Scaler
+        self.scaler = torch.cuda.amp.GradScaler()
+
         # Scheduler
         # When a metric stopped improving for 'patience' number of epochs, the learning rate is reduced by a factor of 2-10.
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=0.1*hyper_parameters['num_epochs'], factor=0.5, verbose=True)
@@ -119,6 +122,7 @@ class Translator:
         # Other parameters
         self.num_epochs = hyper_parameters['num_epochs']
         self.load_model = hyper_parameters['load_model']
+        self.device = device
 
         # Tensorboard to get nice loss plot
         self.writer = SummaryWriter(f"runs/loss_plot")
@@ -143,30 +147,50 @@ class Translator:
                 target = batch.trg.to(device)
 
                 # Forward prop
-                output = self.model(inp_data, target, self.target_language)
+                if self.device == 'cpu':
+                    # Compute the output
+                    output = self.model(inp_data, target, self.target_language)
 
-                # Output is of shape (trg_len, batch_size, output_dim) but Cross Entropy Loss
-                # doesn't take input in that form. For example if we have MNIST we want to have
-                # output to be: (N, 10) and targets just (N). Here we can view it in a similar
-                # way that we have output_words * batch_size that we want to send in into
-                # our cost function, so we need to do some reshapin.
-                # [1:] is to remove the start token
-                output = output[1:].reshape(-1, output.shape[2])
-                target = target[1:].reshape(-1)
+                    # Output is of shape (trg_len, batch_size, output_dim) but Cross Entropy Loss
+                    # doesn't take input in that form. For example if we have MNIST we want to have
+                    # output to be: (N, 10) and targets just (N). Here we can view it in a similar
+                    # way that we have output_words * batch_size that we want to send in into
+                    # our cost function, so we need to do some reshapin.
+                    # [1:] is to remove the start token
+                    output = output[1:].reshape(-1, output.shape[2])
+                    target = target[1:].reshape(-1)
 
-                self.optimizer.zero_grad()
-                loss = self.criterion(output, target)
-                losses.append(loss.item())
+                    # Compute the loss
+                    loss = self.criterion(output, target)
+                    losses.append(loss.item())
 
-                # Back prop
-                loss.backward()
+                    # Back prop
+                    self.optimizer.zero_grad()
+                    loss.backward()
 
-                # Clip to avoid exploding gradient issues, makes sure grads are
-                # within a healthy range
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
+                    # Clip to avoid exploding gradient issues, makes sure grads are
+                    # within a healthy range
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
 
-                # Gradient descent step
-                self.optimizer.step()
+                    # Gradient descent step
+                    self.optimizer.step()
+
+                else:
+
+                    with torch.cuda.amp.autocast():
+                        # Compute the loss
+                        output = self.model(inp_data, target, self.target_language)
+                        output = output[1:].reshape(-1, output.shape[2])
+                        target = target[1:].reshape(-1)
+                        loss = self.criterion(output, target)
+                        losses.append(loss.item())
+
+                        # Backward and optimize
+                        self.optimizer.zero_grad()
+                        self.scaler.scale(loss).backward()
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
+                        self.scaler.step(self.optimizer)
+                        self.scaler.update()
 
                 # Plot to tensorboard
                 self.writer.add_scalar("Training loss", loss, global_step=step)
@@ -186,16 +210,8 @@ if __name__ == "__main__":
     # Device configuration
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    # load the tokenizers
-    # The sequence should be [source language, target language]
+    # # Load tokenizers: The sequence should be [source language, target language]
     tokenizers = ['de_core_news_sm', 'en_core_web_sm']
-
-    hyper_parameters = {
-        'num_epochs': 10000,
-        'batch_size': 32,
-        'learning_rate': 3e-4,
-        'load_model': True,
-    }
 
     model_parameters = {
         'embed_size': 512,
@@ -207,7 +223,14 @@ if __name__ == "__main__":
         'expansion': 4,
     }
 
-    Transformer_Translator = Translator(tokenizers, hyper_parameters, model_parameters, device)
+    hyper_parameters = {
+        'num_epochs': 10000,
+        'batch_size': 32,
+        'learning_rate': 3e-4,
+        'load_model': True,
+    }
+
+    Transformer_Translator = Translator(model_parameters, hyper_parameters, tokenizers, device)
     Transformer_Translator.train()
     Transformer_Translator.test()
 

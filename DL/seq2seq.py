@@ -8,9 +8,6 @@ import random
 from torch.utils.tensorboard import SummaryWriter
 from utils import bleu, save_checkpoint, load_checkpoint
 
-# Device configuration
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 
 class Encoder(nn.Module):
     def __init__(self, input_size, embedding_size, hidden_size, num_layers, drop_prob):
@@ -97,7 +94,7 @@ class Seq2Seq(nn.Module):
 
 
 class Translator:
-    def __init__(self, tokenizers, parameters):
+    def __init__(self, model_params, hyper_params, tokenizers, device):
         self.test_data = None
         spacy_src = spacy.load(tokenizers[0])
         spacy_tgt = spacy.load(tokenizers[1])
@@ -121,7 +118,7 @@ class Translator:
         # helps in computation by minimizing the number of paddings in each batch
         self.train_iterator, self.valid_iterator, self.test_iterator = BucketIterator.splits(
             (self.train_data, self.valid_data, self.test_data),
-            batch_size=parameters['batch_size'], sort_within_batch=True, sort_key=lambda x: len(x.src), device=device,
+            batch_size=hyper_params['batch_size'], sort_within_batch=True, sort_key=lambda x: len(x.src), device=device,
         )
 
         # Model
@@ -129,29 +126,35 @@ class Translator:
         input_size_decoder = len(self.target_language.vocab)
         output_size = len(self.target_language.vocab)
         encoder = Encoder(
-            input_size_encoder, parameters['enc_embed_size'], parameters['hidden_size'], parameters['num_layers'], parameters['enc_dropout']
+            input_size_encoder, model_params['enc_embed_size'],
+            model_params['hidden_size'], model_params['num_layers'], model_params['enc_dropout']
         ).to(device)
         decoder = Decoder(
-            input_size_decoder, parameters['dec_embed_size'], parameters['hidden_size'], output_size, parameters['num_layers'], parameters['dec_dropout'],
+            input_size_decoder, model_params['dec_embed_size'],
+            model_params['hidden_size'], output_size, model_params['num_layers'], model_params['dec_dropout'],
         ).to(device)
         self.model = Seq2Seq(encoder, decoder).to(device)
 
         # Optimizer
-        self.optimizer = optim.Adam(self.model.parameters(), lr=parameters['learning_rate'])
+        self.optimizer = optim.Adam(self.model.parameters(), lr=hyper_params['learning_rate'])
+
+        # Scaler
+        self.scaler = torch.cuda.amp.GradScaler()
 
         # Scheduler
         # When a metric stopped improving for 'patience' number of epochs, the learning rate is reduced by a factor of 2-10.
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=parameters['lr_update_epochs'], factor=0.5, verbose=True)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=0.1*hyper_params['num_epochs'], factor=0.5, verbose=True)
         # # Reduce the learning rate every num_epochs/10 by 0.75
-        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=self.parameters['num_epochs'], gamma=0.75, verbose=True)
+        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=hyper_params['num_epochs'], gamma=0.75, verbose=True)
 
         # As padding is applied to the sentences, we don't want to incur a loss for that
         pad_idx = self.target_language.vocab.stoi["<pad>"]
         self.criterion = nn.CrossEntropyLoss(ignore_index=pad_idx)
 
         # Other parameters
-        self.num_epochs = parameters['num_epochs']
-        self.load_model = parameters['load_model']
+        self.num_epochs = hyper_params['num_epochs']
+        self.load_model = hyper_params['load_model']
+        self.device = device
 
         # Tensorboard to get nice loss plot
         self.writer = SummaryWriter(f"runs/loss_plot")
@@ -176,30 +179,49 @@ class Translator:
                 target = batch.trg.to(device)
 
                 # Forward prop
-                output = self.model(inp_data, target, self.target_language)
+                if self.device == 'cpu':
+                    # Compute the output
+                    output = self.model(inp_data, target, self.target_language)
 
-                # Output is of shape (trg_len, batch_size, output_dim) but Cross Entropy Loss
-                # doesn't take input in that form. For example if we have MNIST we want to have
-                # output to be: (N, 10) and targets just (N). Here we can view it in a similar
-                # way that we have output_words * batch_size that we want to send in into
-                # our cost function, so we need to do some reshapin.
-                # [1:] is to remove the start token
-                output = output[1:].reshape(-1, output.shape[2])
-                target = target[1:].reshape(-1)
+                    # Output is of shape (trg_len, batch_size, output_dim) but Cross Entropy Loss
+                    # doesn't take input in that form. For example if we have MNIST we want to have
+                    # output to be: (N, 10) and targets just (N). Here we can view it in a similar
+                    # way that we have output_words * batch_size that we want to send in into
+                    # our cost function, so we need to do some reshapin.
+                    # [1:] is to remove the start token
+                    output = output[1:].reshape(-1, output.shape[2])
+                    target = target[1:].reshape(-1)
 
-                self.optimizer.zero_grad()
-                loss = self.criterion(output, target)
-                losses.append(loss.item())
+                    self.optimizer.zero_grad()
+                    loss = self.criterion(output, target)
+                    losses.append(loss.item())
 
-                # Back prop
-                loss.backward()
+                    # Back prop
+                    loss.backward()
 
-                # Clip to avoid exploding gradient issues, makes sure grads are
-                # within a healthy range
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
+                    # Clip to avoid exploding gradient issues, makes sure grads are
+                    # within a healthy range
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
 
-                # Gradient descent step
-                self.optimizer.step()
+                    # Gradient descent step
+                    self.optimizer.step()
+
+                else:
+
+                    with torch.cuda.amp.autocast():
+                        # Compute the loss
+                        output = self.model(inp_data, target, self.target_language)
+                        output = output[1:].reshape(-1, output.shape[2])
+                        target = target[1:].reshape(-1)
+                        loss = self.criterion(output, target)
+                        losses.append(loss.item())
+
+                        # Backward and optimize
+                        self.optimizer.zero_grad()
+                        self.scaler.scale(loss).backward()
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
+                        self.scaler.step(self.optimizer)
+                        self.scaler.update()
 
                 # Plot to tensorboard
                 self.writer.add_scalar("Training loss", loss, global_step=step)
@@ -216,16 +238,14 @@ class Translator:
 
 if __name__ == '__main__':
 
-    # load the tokenizers
-    # The sequence should be [source language, target language]
+    # Device configuration
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Load tokenizers: The sequence should be [source language, target language]
     tokenizers = ['de_core_news_sm', 'en_core_web_sm']
 
-    # Training hyperparameters
-    parameters = {
-        'num_epochs': 100,
-        'batch_size': 64,
-        'learning_rate': 0.001,
-        'load_model': False,
+    # Model parameters
+    model_params = {
         'hidden_size': 256,  # Needs to be the same for both RNN's
         'num_layers': 2,
         'enc_dropout': 0.5,
@@ -234,6 +254,14 @@ if __name__ == '__main__':
         'dec_embed_size': 100,
     }
 
-    GE2EN_Translator = Translator(tokenizers, parameters)
+    # Hyper parameters
+    hyper_params = {
+        'num_epochs': 100,
+        'batch_size': 64,
+        'learning_rate': 0.001,
+        'load_model': False,
+    }
+
+    GE2EN_Translator = Translator(model_params, hyper_params, tokenizers, device)
     GE2EN_Translator.train()
     GE2EN_Translator.test()

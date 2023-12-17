@@ -4,8 +4,6 @@ from torch import optim
 from datasets import load_classification_data
 from torch.utils.data import DataLoader
 
-# Device configuration
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # ToDo: Missing k-fold cross validation
 # ToDo: Missing hyper-parameter tuning
@@ -59,11 +57,11 @@ class NeuralNet(nn.Module):
 
 # Model training and prediction
 class Classifier:
-    def __init__(self, parameters, dataset_name):
+    def __init__(self, model_params, hyper_params, dataset_name, device):
 
         # Dataset loader
         train_set, test_set, class_labels = load_classification_data(dataset_name)
-        batch_size = parameters['batch_size']
+        batch_size = hyper_params['batch_size']
         self.train_loader = DataLoader(dataset=train_set,
                                        batch_size=batch_size,
                                        shuffle=True)
@@ -74,24 +72,28 @@ class Classifier:
         # Model initialization
         input_size = 28 * 28
         num_classes = len(class_labels)
-        hidden_size = parameters['hidden_size']
+        hidden_size = model_params['hidden_size']
         self.model = NeuralNet(input_size, hidden_size, num_classes).to(device)
 
         # Loss
         self.criterion = nn.CrossEntropyLoss()
 
         # Optimizer
-        learning_rate = parameters['learning_rate']
+        learning_rate = hyper_params['learning_rate']
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
+
+        # Scaler: helps to reduce RAM and train faster
+        self.scaler = torch.cuda.amp.GradScaler()
 
         # Scheduler
         # When a metric stopped improving for 'patience' number of epochs, the learning rate is reduced by a factor of 2-10.
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=parameters['lr_update_epochs'], factor=0.5, verbose=True)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=0.1*hyper_params['num_epochs'], factor=0.5, verbose=True)
         # # Reduce the learning rate every num_epochs/10 by 0.75
-        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=self.parameters['num_epochs'], gamma=0.75, verbose=True)
+        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=hyper_params['num_epochs'], gamma=0.75, verbose=True)
 
         # Other parameters
-        self.num_epochs = parameters['num_epochs']
+        self.num_epochs = hyper_params['num_epochs']
+        self.device = device
 
     def train(self):
         n_total_steps = len(self.train_loader)
@@ -106,18 +108,34 @@ class Classifier:
             losses = []
             for i, (images, labels) in enumerate(self.train_loader):
                 # Convert it to proper size: [n_batch, 784]
-                images = images.reshape(-1, 28 * 28).to(device)
+                images = images.reshape(-1, 28 * 28).to(self.device)
                 labels = labels.to(device)
 
                 # Forward pass
-                outputs = self.model(images)
-                loss = self.criterion(outputs, labels)
-                losses.append(loss.item())
+                if self.device == 'cpu':
+                    # Compute the loss
+                    outputs = self.model(images)
+                    loss = self.criterion(outputs, labels)
+                    losses.append(loss.item())
 
-                # Backward and optimize
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
+                    # Backward and optimize
+                    self.optimizer.zero_grad()
+                    loss.backward()
+                    self.optimizer.step()
+
+                else:
+
+                    with torch.cuda.amp.autocast():
+                        # Compute the loss
+                        outputs = self.model(images)
+                        loss = self.criterion(outputs, labels)
+                        losses.append(loss.item())
+
+                        # Backward and optimize
+                        self.optimizer.zero_grad()
+                        self.scaler.scale(loss).backward()
+                        self.scaler.step(self.optimizer)
+                        self.scaler.update()
 
                 # Print every 100 optimizer steps
                 if (i + 1) % 100 == 0:
@@ -142,8 +160,8 @@ class Classifier:
             n_correct = 0
             n_samples = 0
             for images, labels in self.test_loader:
-                images = images.reshape(-1, 28 * 28).to(device)
-                labels = labels.to(device)
+                images = images.reshape(-1, 28 * 28).to(self.device)
+                labels = labels.to(self.device)
                 outputs = self.model(images)
                 _, predicted = torch.max(outputs.data, 1)
                 n_samples += labels.size(0)
@@ -156,16 +174,25 @@ class Classifier:
 # Running the code
 if __name__ == "__main__":
 
-    # Hyper-parameters
-    parameters = {
+    # Device configuration
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Model parameters
+    model_parameters = {
         'hidden_size': 500,
+    }
+
+    # Hyper parameters
+    hyper_parameters = {
         'num_epochs': 2,
         'batch_size': 100,
         'learning_rate': 0.001,
     }
 
+    # Dataset
     dataset_name = 'mnist'
 
-    IMG_CLASS = Classifier(parameters, dataset_name)
+    # Training & Testing
+    IMG_CLASS = Classifier(model_parameters, hyper_parameters, dataset_name, device)
     IMG_CLASS.train()
     IMG_CLASS.test()
