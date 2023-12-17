@@ -18,6 +18,12 @@ class SelfAttention(nn.Module):
         self.queries = nn.Linear(self.head_dim, self.head_dim, bias=False)
         self.fc = nn.Linear(self.num_heads * self.head_dim, embedding_size)
 
+        nn.init.kaiming_uniform_(self.keys.weight)
+        nn.init.kaiming_uniform_(self.values.weight)
+        nn.init.kaiming_uniform_(self.queries.weight)
+        nn.init.kaiming_uniform_(self.fc.weight)
+        nn.init.constant_(self.fc.bias, 0)
+
     def forward(self, keys, values, queries, mask):
 
         # Get the parameters
