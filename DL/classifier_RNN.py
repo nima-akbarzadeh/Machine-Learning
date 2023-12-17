@@ -520,6 +520,7 @@ class Classifier:
 
         # Other parameters
         self.num_epochs = hyper_params['num_epochs']
+        self.clip_grad = hyper_params['clip_grad']
         self.device = device
 
 
@@ -550,6 +551,8 @@ class Classifier:
                     # Backward and optimize
                     self.optimizer.zero_grad()
                     loss.backward()
+                    if self.clip_grad:
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
                     self.optimizer.step()
 
                 else:
@@ -563,6 +566,8 @@ class Classifier:
                         # Backward and optimize
                         self.optimizer.zero_grad()
                         self.scaler.scale(loss).backward()
+                        if self.clip_grad:
+                            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
                         self.scaler.step(self.optimizer)
                         self.scaler.update()
 
@@ -574,17 +579,17 @@ class Classifier:
             self.scheduler.step(metrics=mean_loss)
 
             # Two ways to save the models
-            torch.save(self.model.state_dict(), "models/classifier_FCN.pth")
-            # torch.save(self.models, "./models/classifier_FCN.pth")
+            torch.save(self.model.state_dict(), "models/classifier_RNN.pth")
+            # torch.save(self.models, "./models/classifier_RNN.pth")
 
 
     def test(self):
         # # If a saved models is being tested either use
         # # 1. Create the model and load the state_dict
         # # Since the model is part of ImageClassifier, we just load the state_dict
-        self.model.load_state_dict(torch.load("models/classifier_CNN.pth"))
+        self.model.load_state_dict(torch.load("models/classifier_RNN.pth"))
         # # 2. Load the whole model
-        # self.models = torch.load("./models/classifier_CNN.pth")
+        # self.models = torch.load("./models/classifier_RNN.pth")
         self.model.eval()
         with torch.no_grad():
             n_correct = 0
@@ -620,6 +625,7 @@ if __name__ == "__main__":
         'num_epochs': 2,
         'batch_size': 100,
         'learning_rate': 0.001,
+        'clip_grad': True,
     }
 
     # Dataset

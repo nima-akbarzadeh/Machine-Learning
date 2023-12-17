@@ -93,6 +93,7 @@ class Classifier:
 
         # Other parameters
         self.num_epochs = hyper_params['num_epochs']
+        self.clip_grad = hyper_params['clip_grad']
         self.device = device
 
     def train(self):
@@ -109,6 +110,7 @@ class Classifier:
             for i, (images, labels) in enumerate(self.train_loader):
                 # Convert it to proper size: [n_batch, 784]
                 images = images.reshape(-1, 28 * 28).to(self.device)
+                # images = images.view(images.shape[0], self.input_size).to(self.device)
                 labels = labels.to(device)
 
                 # Forward pass
@@ -121,6 +123,8 @@ class Classifier:
                     # Backward and optimize
                     self.optimizer.zero_grad()
                     loss.backward()
+                    if self.clip_grad:
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
                     self.optimizer.step()
 
                 else:
@@ -134,6 +138,8 @@ class Classifier:
                         # Backward and optimize
                         self.optimizer.zero_grad()
                         self.scaler.scale(loss).backward()
+                        if self.clip_grad:
+                            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
                         self.scaler.step(self.optimizer)
                         self.scaler.update()
 
@@ -152,9 +158,9 @@ class Classifier:
         # # If a saved models is being tested either use
         # # 1. Create the model and load the state_dict
         # # Since the model is part of ImageClassifier, we just load the state_dict
-        self.model.load_state_dict(torch.load("models/classifier_CNN.pth"))
+        self.model.load_state_dict(torch.load("models/classifier_FCN.pth"))
         # # 2. Load the whole model
-        # self.models = torch.load("./models/classifier_CNN.pth")
+        # self.models = torch.load("./models/classifier_FCN.pth")
         self.model.eval()
         with torch.no_grad():
             n_correct = 0
@@ -187,6 +193,7 @@ if __name__ == "__main__":
         'num_epochs': 2,
         'batch_size': 100,
         'learning_rate': 0.001,
+        'clip_grad': True,
     }
 
     # Dataset

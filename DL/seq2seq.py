@@ -154,6 +154,7 @@ class Translator:
         # Other parameters
         self.num_epochs = hyper_params['num_epochs']
         self.load_model = hyper_params['load_model']
+        self.clip_grad = hyper_params['clip_grad']
         self.device = device
 
         # Tensorboard to get nice loss plot
@@ -198,12 +199,8 @@ class Translator:
 
                     # Back prop
                     loss.backward()
-
-                    # Clip to avoid exploding gradient issues, makes sure grads are
-                    # within a healthy range
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
-
-                    # Gradient descent step
+                    if self.clip_grad:
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
                     self.optimizer.step()
 
                 else:
@@ -219,7 +216,8 @@ class Translator:
                         # Backward and optimize
                         self.optimizer.zero_grad()
                         self.scaler.scale(loss).backward()
-                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
+                        if self.clip_grad:
+                            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
                         self.scaler.step(self.optimizer)
                         self.scaler.update()
 
@@ -260,6 +258,7 @@ if __name__ == '__main__':
         'batch_size': 64,
         'learning_rate': 0.001,
         'load_model': False,
+        'clip_grad': True,
     }
 
     GE2EN_Translator = Translator(model_params, hyper_params, tokenizers, device)

@@ -105,6 +105,7 @@ class ImageClassifier:
 
         # Other parameters
         self.num_epochs = hyper_params['num_epochs']
+        self.clip_grad = hyper_params['clip_grad']
         self.device = device
 
         # Tensorboard
@@ -139,6 +140,8 @@ class ImageClassifier:
                     # Backward and optimize
                     self.optimizer.zero_grad()
                     loss.backward()
+                    if self.clip_grad:
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
                     self.optimizer.step()
 
                 else:
@@ -152,6 +155,8 @@ class ImageClassifier:
                         # Backward and optimize
                         self.optimizer.zero_grad()
                         self.scaler.scale(loss).backward()
+                        if self.clip_grad:
+                            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
                         self.scaler.step(self.optimizer)
                         self.scaler.update()
 
@@ -253,6 +258,7 @@ if __name__ == "__main__":
         'num_epochs': 10,
         'batch_size': 32,
         'learning_rate': 0.001,
+        'clip_grad': True,
     }
 
     # Dataset

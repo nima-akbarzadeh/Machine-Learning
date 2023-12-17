@@ -66,7 +66,7 @@ class Transformer(nn.Module):
 
 
 class Translator:
-    def __init__(self, model_parameters, hyper_parameters, tokenizers, device):
+    def __init__(self, model_parameters, hyper_params, tokenizers, device):
         self.test_data = None
         spacy_src = spacy.load(tokenizers[0])
         spacy_tgt = spacy.load(tokenizers[1])
@@ -90,7 +90,7 @@ class Translator:
         # helps in computation by minimizing the number of paddings in each batch
         self.train_iterator, self.valid_iterator, self.test_iterator = BucketIterator.splits(
             (self.train_data, self.valid_data, self.test_data),
-            batch_size=hyper_parameters['batch_size'], sort_within_batch=True, sort_key=lambda x: len(x.src), device=device,
+            batch_size=hyper_params['batch_size'], sort_within_batch=True, sort_key=lambda x: len(x.src), device=device,
         )
 
         # Model
@@ -104,14 +104,14 @@ class Translator:
         ).to(device)
 
         # Optimizer
-        self.optimizer = optim.Adam(self.model.parameters(), lr=hyper_parameters['learning_rate'])
+        self.optimizer = optim.Adam(self.model.parameters(), lr=hyper_params['learning_rate'])
 
         # Scaler
         self.scaler = torch.cuda.amp.GradScaler()
 
         # Scheduler
         # When a metric stopped improving for 'patience' number of epochs, the learning rate is reduced by a factor of 2-10.
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=0.1*hyper_parameters['num_epochs'], factor=0.5, verbose=True)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=0.1*hyper_params['num_epochs'], factor=0.5, verbose=True)
         # # Reduce the learning rate every num_epochs/10 by 0.75
         # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=self.parameters['num_epochs'], gamma=0.75, verbose=True)
 
@@ -120,8 +120,9 @@ class Translator:
         self.criterion = nn.CrossEntropyLoss(ignore_index=target_pad_idx)
 
         # Other parameters
-        self.num_epochs = hyper_parameters['num_epochs']
-        self.load_model = hyper_parameters['load_model']
+        self.num_epochs = hyper_params['num_epochs']
+        self.load_model = hyper_params['load_model']
+        self.clip_grad = hyper_params['clip_grad']
         self.device = device
 
         # Tensorboard to get nice loss plot
@@ -167,12 +168,8 @@ class Translator:
                     # Back prop
                     self.optimizer.zero_grad()
                     loss.backward()
-
-                    # Clip to avoid exploding gradient issues, makes sure grads are
-                    # within a healthy range
-                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
-
-                    # Gradient descent step
+                    if self.clip_grad:
+                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
                     self.optimizer.step()
 
                 else:
@@ -188,7 +185,8 @@ class Translator:
                         # Backward and optimize
                         self.optimizer.zero_grad()
                         self.scaler.scale(loss).backward()
-                        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
+                        if self.clip_grad:
+                            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1)
                         self.scaler.step(self.optimizer)
                         self.scaler.update()
 
@@ -223,14 +221,15 @@ if __name__ == "__main__":
         'expansion': 4,
     }
 
-    hyper_parameters = {
+    hyper_params = {
         'num_epochs': 10000,
         'batch_size': 32,
         'learning_rate': 3e-4,
         'load_model': True,
+        'clip_grad': True,
     }
 
-    Transformer_Translator = Translator(model_parameters, hyper_parameters, tokenizers, device)
+    Transformer_Translator = Translator(model_parameters, hyper_params, tokenizers, device)
     Transformer_Translator.train()
     Transformer_Translator.test()
 
