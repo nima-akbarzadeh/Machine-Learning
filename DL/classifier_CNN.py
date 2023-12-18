@@ -193,7 +193,7 @@ class ImageClassifier:
         # # Since the model is part of ImageClassifier, we just load the state_dict
         self.model.load_state_dict(torch.load("models/classifier_CNN.pth"))
         # # 2. Load the whole model
-        # self.models = torch.load("./models/classifier_CNN.pth")
+        # self.model = torch.load("./models/classifier_CNN.pth")
         self.model.eval()
 
         probs = []

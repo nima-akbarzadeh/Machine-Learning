@@ -589,7 +589,7 @@ class Classifier:
         # # Since the model is part of ImageClassifier, we just load the state_dict
         self.model.load_state_dict(torch.load("models/classifier_RNN.pth"))
         # # 2. Load the whole model
-        # self.models = torch.load("./models/classifier_RNN.pth")
+        # self.model = torch.load("./models/classifier_RNN.pth")
         self.model.eval()
         with torch.no_grad():
             n_correct = 0

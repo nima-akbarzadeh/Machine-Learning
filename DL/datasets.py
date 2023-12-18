@@ -9,7 +9,7 @@ def load_classification_data(data_name, data_info=True):
         # Transform the dataset to Tensors of normalized range [-1, 1]
         # transform = transforms.Compose(
         #     [transforms.ToTensor(),
-        #      transforms.Normalize((0.1307,), (0.1307,))])
+        #      transforms.Normalize((0.5,), (0.5,))])
         transform = transforms.ToTensor()
         train_dataset = MNIST(root='./data',
                               train=True,

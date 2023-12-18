@@ -183,7 +183,7 @@ class Reconstructor:
         # # Since the model is part of ImageClassifier, we just load the state_dict
         self.model.load_state_dict(torch.load("models/reconstructor_VAE.pth"))
         # # 2. Load the whole model
-        # self.models = torch.load("./models/reconstructor_VAE.pth")
+        # self.model = torch.load("./models/reconstructor_VAE.pth")
         self.model.eval()
         with torch.no_grad():
             for images, _ in self.test_loader:
