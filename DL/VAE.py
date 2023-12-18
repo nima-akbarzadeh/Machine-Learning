@@ -193,17 +193,19 @@ class Reconstructor:
                 loss_reconstruction = self.criterion(outputs, images)
                 loss = loss_regularization + loss_reconstruction
 
-            print(f'The loss of the test data is: {loss.item()} %')
+            print(f'The loss of the test data is: {loss.item()}.')
 
     def inference(self, digit, num_examples=1):
+        self.model.load_state_dict(torch.load("models/reconstructor_VAE.pth"))
         images = []
         idx = 0
-        for x, y in self.test_loader:
-            if y == idx:
-                images.append(x)
-                idx += 1
-            if idx == 10:
-                break
+        for xs, ys in self.test_loader:
+            for y_idx, y in enumerate(ys):
+                if y == idx:
+                    images.append(xs[y_idx])
+                    idx += 1
+                if idx == 10:
+                    break
 
         encodings_digit = []
         for d in range(10):
@@ -244,8 +246,8 @@ if __name__ == '__main__':
 
     # Training & Testing
     IMG_RECONSTRUCTOR = Reconstructor(model_parameters, hyper_parameters, dataset_name, device)
-    IMG_RECONSTRUCTOR.train()
-    IMG_RECONSTRUCTOR.test()
+    # IMG_RECONSTRUCTOR.train()
+    # IMG_RECONSTRUCTOR.test()
 
     for idx in range(10):
         IMG_RECONSTRUCTOR.inference(idx, num_examples=5)
