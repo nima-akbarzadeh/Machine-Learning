@@ -180,7 +180,7 @@ class Translator:
                 target = batch.trg.to(device)
 
                 # Forward prop
-                if self.device == 'cpu':
+                if str(self.device) == "cpu":
                     # Compute the output
                     output = self.model(inp_data, target, self.target_language)
 

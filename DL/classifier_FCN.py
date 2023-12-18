@@ -114,7 +114,7 @@ class Classifier:
                 labels = labels.to(device)
 
                 # Forward pass
-                if self.device == 'cpu':
+                if str(self.device) == "cpu":
                     # Compute the loss
                     outputs = self.model(images)
                     loss = self.criterion(outputs, labels)
