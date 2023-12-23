@@ -41,7 +41,7 @@ if __name__ == '__main__':
     # Example 1
     X_train, X_test, y_train, y_test = load_classification_data(data_name='breast', data_info=True)
 
-    PCA_transformer1 = PCA(n_components=2)
+    PCA_transformer1 = PCA(n_components=10)
     train_transformations = PCA_transformer1.transform(X_train)
     print(f"The new train data is")
     print(train_transformations[:5, :])
