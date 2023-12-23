@@ -108,15 +108,6 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
 
-def res_net(num_layers, num_img_channels, num_classes=1000):
-    if num_layers == 50:
-        return ResNet(SubBlock, [3, 4, 6, 3], num_img_channels, num_classes)
-    elif num_layers == 101:
-        return ResNet(SubBlock, [3, 4, 23, 3], num_img_channels, num_classes)
-    elif num_layers == 152:
-        return ResNet(SubBlock, [3, 8, 36, 3], num_img_channels, num_classes)
-
-
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
