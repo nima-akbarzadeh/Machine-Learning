@@ -4,10 +4,14 @@ from RL.utils import plot_learning_curve
 
 if __name__ == '__main__':
     env = gym.make('LunarLander-v2')
+    input_dims = [8]
+    n_actions = 4
+    gamma = 0.99
+    epsilon = 1.0
     n_episodes = 50
     load_agent = False
-    agent = Agent(input_dims=[8], n_actions=4, gamma=0.99, epsilon=1.0, replace=0.1*n_episodes)
 
+    agent = Agent(env, input_dims, n_actions, gamma, epsilon, n_episodes)
     if load_agent:
         agent.load_models()
 
