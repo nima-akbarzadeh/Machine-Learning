@@ -3,8 +3,8 @@ import torch.multiprocessing as mp
 from RL.Agents.A3C import ActorCritic, SharedOptim, Agent
 
 if __name__ == '__main__':
-    env = gym.make('CartPole-v0')
-    n_episodes = 50
+    env = gym.make('CartPole-v1')
+    n_episodes = 1000
     input_dims = [4]
     n_actions = 2
     gamma = 0.99

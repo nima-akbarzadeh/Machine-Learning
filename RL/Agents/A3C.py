@@ -144,7 +144,7 @@ class Agent(mp.Process):
         if self.learner_step % self.update_time == 0 or terminal:
             # Compute the loss and backpropagate it through the network
             self.optimizer.zero_grad()
-            loss = self.local_ac.get_loss(terminal)
+            loss = self.get_loss(terminal)
             loss.backward()
             for local_param, global_param in \
                     zip(self.local_ac.parameters(), self.global_actor_critic.parameters()):
@@ -153,7 +153,7 @@ class Agent(mp.Process):
 
             # load the global architecture into the local one and start from scratch
             self.local_ac.load_state_dict(self.global_actor_critic.state_dict())
-            self.local_ac.clear_trajectory()
+            self.clear_trajectory()
 
         # Increase the episode counter
         self.learner_step += 1
@@ -163,9 +163,9 @@ class Agent(mp.Process):
             terminal = False
             observation = self.env.reset()[0]
             score = 0
-            self.local_ac.clear_memory()
+            self.clear_trajectory()
             while not terminal:
-                action = self.local_ac.choose_action(observation)
+                action = self.choose_action(observation)
                 observation_, reward, done, truncated, info = self.env.step(action)
                 score += reward
                 terminal = done or truncated
