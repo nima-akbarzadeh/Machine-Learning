@@ -94,7 +94,7 @@ class Agent:
         self.memory = ReplayBuffer(mem_size, input_dims)
         self.q_net = DeepQNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims,
                                   'ddqn1_lunarlander', chkpt_dir)
-        self.q_nxt = DeepQNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims,
+        self.q_trg = DeepQNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims,
                                   'ddqn2_lunarlander', chkpt_dir)
 
         self.learner_step = 0
@@ -113,7 +113,7 @@ class Agent:
 
     def replace_target_network(self):
         if self.learner_step % self.replace_counter == 0:
-            self.q_nxt.load_state_dict(self.q_net.state_dict())
+            self.q_trg.load_state_dict(self.q_net.state_dict())
 
     def store_trajectory(self, state, action, reward, state_, done):
         self.memory.store_trajectory(state, action, reward, state_, done)
@@ -153,9 +153,9 @@ class Agent:
         actions_ = torch.argmax(q_preds_, dim=1)
 
         # Compute the target Q-value
-        q_nxt_ = self.q_nxt.forward(states_)
-        q_nxt_[terminals] = 0.0
-        q_targets = rewards + self.gamma * q_nxt_[indices, actions_]
+        q_trg_ = self.q_trg.forward(states_)
+        q_trg_[terminals] = 0.0
+        q_targets = rewards + self.gamma * q_trg_[indices, actions_]
 
         # Compute the loss and backpropagate it through the network
         self.optimizer.zero_grad()

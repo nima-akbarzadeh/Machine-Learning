@@ -94,7 +94,7 @@ class Agent:
         self.memory = ReplayBuffer(mem_size, input_dims)
         self.q_net = DuelingDeepQNetwork(input_dims, n_actions, hidden_dims,
                                          'duelddqn1_lunarlander', chkpt_dir)
-        self.q_nxt = DuelingDeepQNetwork(input_dims, n_actions, hidden_dims,
+        self.q_trg = DuelingDeepQNetwork(input_dims, n_actions, hidden_dims,
                                          'duelddqn2_lunarlander', chkpt_dir)
 
         self.learner_step = 0
@@ -112,7 +112,7 @@ class Agent:
 
     def replace_target_network(self):
         if self.learner_step % self.replace_counter == 0:
-            self.q_nxt.load_state_dict(self.q_net.state_dict())
+            self.q_trg.load_state_dict(self.q_net.state_dict())
 
     def store_trajectory(self, state, action, reward, state_, done):
         self.memory.store_trajectory(state, action, reward, state_, done)
@@ -122,11 +122,11 @@ class Agent:
 
     def save_model(self):
         self.q_net.save_checkpoint()
-        self.q_nxt.save_checkpoint()
+        self.q_trg.save_checkpoint()
 
     def load_model(self):
         self.q_net.load_checkpoint()
-        self.q_nxt.load_checkpoint()
+        self.q_trg.load_checkpoint()
 
     def learn(self):
         if self.memory.mem_counter < self.batch_size:
@@ -157,10 +157,10 @@ class Agent:
         actions_ = torch.argmax(q_preds_, dim=1)
 
         # Compute the target Q-value
-        vals_qnxt_, advs_qnxt_ = self.q_nxt.forward(states_)
-        q_nxt_ = torch.add(vals_qnxt_, (advs_qnxt_ - advs_qnxt_.mean(dim=1, keepdim=True)))
-        q_nxt_[terminals] = 0.0
-        q_targets = rewards + self.gamma * q_nxt_[indices, actions_]
+        vals_qtrg_, advs_qtrg_ = self.q_trg.forward(states_)
+        q_trg_ = torch.add(vals_qtrg_, (advs_qtrg_ - advs_qtrg_.mean(dim=1, keepdim=True)))
+        q_trg_[terminals] = 0.0
+        q_targets = rewards + self.gamma * q_trg_[indices, actions_]
 
         # Compute the loss and backpropagate it through the network
         self.optimizer.zero_grad()
