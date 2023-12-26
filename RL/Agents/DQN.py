@@ -17,8 +17,6 @@ class DeepQNetwork(nn.Module):
         self.fc1 = nn.Linear(*input_dims, hidden1_dims)
         self.fc2 = nn.Linear(hidden1_dims, hidden2_dims)
         self.fc3 = nn.Linear(hidden2_dims, n_actions)
-        self.optimizer = optim.Adam(self.parameters(), lr=lr)
-        self.loss = nn.MSELoss()
 
         # Initialize the rest of parameters
         self.device = device
@@ -90,11 +88,13 @@ class Agent:
         self.chkpt_dir = chkpt_dir
         self.device = device
 
-        self.learner_step = 0
-
         self.memory = ReplayBuffer(mem_size, input_dims)
         self.q_net = DeepQNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims, lr,
-                                    'dqn_valnet_lunarlander', chkpt_dir, DEVICE)
+                                    'dqn_lunarlander', chkpt_dir, DEVICE)
+
+        self.optimizer = optim.Adam(self.q_net.parameters(), lr=lr)
+        self.loss = nn.MSELoss()
+        self.learner_step = 0
 
     def choose_action(self, observation):
         if np.random.random() > self.epsilon:
@@ -148,10 +148,10 @@ class Agent:
         q_targets = rewards + self.gamma * q_preds_[indices, actions_]
 
         # Compute the loss and backpropagate it through the network
-        self.q_net.optimizer.zero_grad()
-        loss = self.q_net.loss(q_preds, q_targets).to(self.q_net.device)
+        self.optimizer.zero_grad()
+        loss = self.loss(q_preds, q_targets).to(self.q_net.device)
         loss.backward()
-        self.q_net.optimizer.step()
+        self.optimizer.step()
 
         # Increase the episode counter
         self.learner_step += 1

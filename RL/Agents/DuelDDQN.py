@@ -16,8 +16,6 @@ class DuelingDeepQNetwork(nn.Module):
         self.fc = nn.Linear(*input_dims, hidden_dims)
         self.val_net = nn.Linear(hidden_dims, 1)
         self.adv_net = nn.Linear(hidden_dims, n_actions)
-        self.optimizer = optim.Adam(self.parameters(), lr=lr)
-        self.loss = nn.MSELoss()
 
         # Initialize the rest of parameters
         self.device = device
@@ -78,7 +76,7 @@ class ReplayBuffer:
 class Agent:
     def __init__(self, input_dims, n_actions, gamma, epsilon, lr=1e-3, batch_size=64,
                  hidden_dims=256, mem_size=100000, eps_min=0.01, eps_dec=5e-4, replace=100,
-                 chkpt_dir='tmp/dddqn', device=DEVICE):
+                 chkpt_dir='tmp/duelddqn', device=DEVICE):
         self.action_space = [i for i in range(n_actions)]
         self.gamma = gamma
         self.epsilon = epsilon
@@ -91,13 +89,16 @@ class Agent:
         self.chkpt_dir = chkpt_dir
         self.device = device
 
-        self.learner_step = 0
-
         self.memory = ReplayBuffer(mem_size, input_dims)
         self.q_net = DuelingDeepQNetwork(input_dims, n_actions, hidden_dims, lr,
-                                          'dddqn_valnet_lunarlander', chkpt_dir)
+                                          'duelddqn1_lunarlander', chkpt_dir)
         self.q_nxt = DuelingDeepQNetwork(input_dims, n_actions, hidden_dims, lr,
-                                          'dddqn_nxtnet_lunarlander', chkpt_dir)
+                                          'duelddqn2_lunarlander', chkpt_dir)
+
+        self.learner_step = 0
+        self.optimizer = optim.Adam(self.q_net.parameters(), lr=lr)
+        self.loss = nn.MSELoss()
+
 
     def choose_action(self, observation):
         if np.random.random() > self.epsilon:
@@ -160,10 +161,10 @@ class Agent:
         q_targets = rewards + self.gamma * q_nxt_[indices, actions_]
 
         # Compute the loss and backpropagate it through the network
-        self.q_net.optimizer.zero_grad()
-        loss = self.q_net.loss(q_preds, q_targets).to(self.q_net.device)
+        self.optimizer.zero_grad()
+        loss = self.loss(q_preds, q_targets).to(self.q_net.device)
         loss.backward()
-        self.q_net.optimizer.step()
+        self.optimizer.step()
 
         # Increase the episode counter
         self.learner_step += 1
