@@ -9,7 +9,7 @@ DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 class DeepQNetwork(nn.Module):
-    def __init__(self, input_dims, n_actions, hidden1_dims, hidden2_dims, lr, filename, chkpt_dir,
+    def __init__(self, input_dims, n_actions, hidden1_dims, hidden2_dims, filename, chkpt_dir,
                  device=DEVICE):
         super(DeepQNetwork, self).__init__()
 
@@ -91,8 +91,8 @@ class Agent:
         self.device = device
 
         self.memory = ReplayBuffer(mem_size, input_dims)
-        self.q_net = DeepQNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims, lr,
-                                    'dqn_lunarlander', chkpt_dir, DEVICE)
+        self.q_net = DeepQNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims,
+                                  'dqn_lunarlander', chkpt_dir)
 
         self.optimizer = optim.Adam(self.q_net.parameters(), lr=lr)
         self.loss = nn.MSELoss()
@@ -107,17 +107,16 @@ class Agent:
             # Choose action randomly
             return np.random.choice(self.action_space)
 
-
     def store_data(self, state, action, reward, state_, done):
         self.memory.store_transition(state, action, reward, state_, done)
 
     def decrement_epsilon(self):
         self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min
 
-    def save_models(self):
+    def save_model(self):
         self.q_net.save_checkpoint()
 
-    def load_models(self):
+    def load_model(self):
         self.q_net.load_checkpoint()
 
     def learn(self):

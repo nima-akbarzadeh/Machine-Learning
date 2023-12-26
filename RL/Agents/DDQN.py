@@ -9,7 +9,7 @@ DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 class DeepQNetwork(nn.Module):
-    def __init__(self, input_dims, n_actions, hidden1_dims, hidden2_dims, lr, filename, chkpt_dir,
+    def __init__(self, input_dims, n_actions, hidden1_dims, hidden2_dims, filename, chkpt_dir,
                  device=DEVICE):
         super(DeepQNetwork, self).__init__()
 
@@ -50,7 +50,7 @@ class ReplayBuffer:
         self.reward_mem = np.zeros(self.mem_size, dtype=np.float32)
         self.terminal_mem = np.zeros(self.mem_size, dtype=np.bool_)
 
-    def store_data(self, state, action, reward, state_, terminal):
+    def store_trajectory(self, state, action, reward, state_, terminal):
         index = self.mem_counter % self.mem_size
         self.state_mem[index] = state
         self.new_state_mem[index] = state_
@@ -92,10 +92,10 @@ class Agent:
         self.device = device
 
         self.memory = ReplayBuffer(mem_size, input_dims)
-        self.q_net = DeepQNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims, lr,
-                                    'ddqn1_lunarlander', chkpt_dir, DEVICE)
-        self.q_nxt = DeepQNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims, lr,
-                                    'ddqn2_lunarlander', chkpt_dir, DEVICE)
+        self.q_net = DeepQNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims,
+                                  'ddqn1_lunarlander', chkpt_dir)
+        self.q_nxt = DeepQNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims,
+                                  'ddqn2_lunarlander', chkpt_dir)
 
         self.learner_step = 0
         self.optimizer = optim.Adam(self.q_net.parameters(), lr=lr)
@@ -115,16 +115,16 @@ class Agent:
         if self.learner_step % self.replace_counter == 0:
             self.q_nxt.load_state_dict(self.q_net.state_dict())
 
-    def store_transition(self, state, action, reward, state_, done):
-        self.memory.store_data(state, action, reward, state_, done)
+    def store_trajectory(self, state, action, reward, state_, done):
+        self.memory.store_trajectory(state, action, reward, state_, done)
 
     def decrement_epsilon(self):
         self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min
 
-    def save_models(self):
+    def save_model(self):
         self.q_net.save_checkpoint()
 
-    def load_models(self):
+    def load_model(self):
         self.q_net.load_checkpoint()
 
     def learn(self):
@@ -180,7 +180,7 @@ class Agent:
                 observation_, reward, done, truncated, info = env.step(action)
                 score += reward
                 terminal = done or truncated
-                self.store_transition(observation, action, reward, observation_, terminal)
+                self.store_trajectory(observation, action, reward, observation_, terminal)
                 self.learn()
                 observation = observation_
 
