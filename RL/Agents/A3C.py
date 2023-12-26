@@ -129,7 +129,9 @@ class Agent(mp.Process):
 
     def choose_action(self, observation):
         state = torch.tensor([observation], dtype=torch.float)
+        self.local_ac.eval()
         val, pol = self.local_ac.forward(state)
+        self.local_ac.train()
         prob_dist = Categorical(torch.softmax(pol, dim=1))
 
         return prob_dist.sample().numpy()[0]

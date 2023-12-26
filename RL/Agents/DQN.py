@@ -98,7 +98,9 @@ class Agent:
         if np.random.random() > self.epsilon:
             # Choose action according to the Q-network
             state = torch.tensor([observation]).to(self.q_net.device)
+            self.q_net.eval()
             actions = self.q_net.forward(state)
+            self.q_net.train()
             return torch.argmax(actions).item()
         else:
             # Choose action randomly

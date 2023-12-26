@@ -102,7 +102,9 @@ class Agent:
         if np.random.random() > self.epsilon:
             # Choose action according to the Q-network
             state = torch.tensor([observation]).to(self.q_net.device)
+            self.q_net.eval()
             actions = self.q_net.forward(state)
+            self.q_net.train()
             return torch.argmax(actions).item()
         else:
             # Choose action randomly
@@ -128,7 +130,7 @@ class Agent:
         if self.memory.mem_counter < self.batch_size:
             return
 
-        # update the target network
+        # Update the target network
         self.update_target_network()
 
         # Sample memory and convert it to tensors
