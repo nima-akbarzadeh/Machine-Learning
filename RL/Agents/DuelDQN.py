@@ -76,7 +76,7 @@ class ReplayBuffer:
 class Agent:
     def __init__(self, env, input_dims, n_actions, gamma, epsilon, n_episodes, lr=1e-3,
                  batch_size=64, hidden_dims=256, mem_size=100000, eps_min=0.01, eps_dec=5e-4,
-                 replace=1000, chkpt_dir='tmp/dueldqn', device=DEVICE):
+                 replace=1000, chkpt_dir='./tmp/dueldqn', device=DEVICE):
         self.env = env
         self.action_space = [i for i in range(n_actions)]
         self.gamma = gamma
