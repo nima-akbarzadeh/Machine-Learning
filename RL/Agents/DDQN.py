@@ -86,7 +86,7 @@ class Agent:
         self.n_episodes = n_episodes
         self.batch_size = batch_size
         self.mem_size = mem_size
-        self.replace_counter = replace
+        self.replace_limit = replace
 
         self.memory = ReplayBuffer(mem_size, input_dims)
         self.q_net = DeepQNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims,
@@ -109,7 +109,7 @@ class Agent:
             return np.random.choice(self.action_space)
 
     def replace_target_network(self):
-        if self.learner_step % self.replace_counter == 0:
+        if self.learner_step % self.replace_limit == 0:
             self.q_trg.load_state_dict(self.q_net.state_dict())
 
     def store_data(self, state, action, reward, state_, terminal):
