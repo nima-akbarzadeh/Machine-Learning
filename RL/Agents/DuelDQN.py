@@ -159,3 +159,29 @@ class Agent:
 
         # Decrease the epsilon if possible
         self.decrement_epsilon()
+
+    def train(self, env, n_episodes):
+        scores, eps_history = [], []
+        for i in range(n_episodes):
+            score = 0
+            terminal = False
+            observation = env.reset()[0]
+            while not terminal:
+                action = self.choose_action(observation)
+                observation_, reward, done, truncated, info = env.step(action)
+                score += reward
+                terminal = done or truncated
+                self.store_transition(observation, action, reward, observation_, terminal)
+                self.learn()
+                observation = observation_
+
+            scores.append(score)
+            eps_history.append(self.epsilon)
+            avg_score = np.mean(scores[-100:])
+
+            print(
+                'episode ', i, 'score %.2f' % score, 'average score %.2f' % avg_score,
+                               'epsilon %.2f' % self.epsilon
+            )
+
+        return scores, eps_history
