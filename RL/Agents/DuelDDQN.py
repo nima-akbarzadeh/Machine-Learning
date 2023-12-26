@@ -111,7 +111,7 @@ class Agent:
         if self.learner_step % self.replace_counter == 0:
             self.q_nxt.load_state_dict(self.q_net.state_dict())
 
-    def store_transition(self, state, action, reward, state_, done):
+    def store_data(self, state, action, reward, state_, done):
         self.memory.store_transition(state, action, reward, state_, done)
 
     def decrement_epsilon(self):
@@ -182,7 +182,7 @@ class Agent:
                 observation_, reward, done, truncated, info = env.step(action)
                 score += reward
                 terminal = done or truncated
-                self.store_transition(observation, action, reward, observation_, terminal)
+                self.store_data(observation, action, reward, observation_, terminal)
                 self.learn()
                 observation = observation_
 

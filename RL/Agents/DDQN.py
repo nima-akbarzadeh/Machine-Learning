@@ -52,7 +52,7 @@ class ReplayBuffer:
         self.reward_mem = np.zeros(self.mem_size, dtype=np.float32)
         self.terminal_mem = np.zeros(self.mem_size, dtype=np.bool_)
 
-    def store_transition(self, state, action, reward, state_, terminal):
+    def store_data(self, state, action, reward, state_, terminal):
         index = self.mem_counter % self.mem_size
         self.state_mem[index] = state
         self.new_state_mem[index] = state_
@@ -114,7 +114,7 @@ class Agent:
             self.q_nxt.load_state_dict(self.q_net.state_dict())
 
     def store_transition(self, state, action, reward, state_, done):
-        self.memory.store_transition(state, action, reward, state_, done)
+        self.memory.store_data(state, action, reward, state_, done)
 
     def decrement_epsilon(self):
         self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min
