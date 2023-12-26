@@ -107,8 +107,8 @@ class Agent:
             # Choose action randomly
             return np.random.choice(self.action_space)
 
-    def store_data(self, state, action, reward, state_, done):
-        self.memory.store_data(state, action, reward, state_, done)
+    def store_data(self, state, action, reward, state_, terminal):
+        self.memory.store_data(state, action, reward, state_, terminal)
 
     def decrement_epsilon(self):
         self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min

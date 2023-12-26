@@ -50,7 +50,7 @@ class ReplayBuffer:
         self.reward_mem = np.zeros(self.mem_size, dtype=np.float32)
         self.terminal_mem = np.zeros(self.mem_size, dtype=np.bool_)
 
-    def store_trajectory(self, state, action, reward, state_, terminal):
+    def store_data(self, state, action, reward, state_, terminal):
         index = self.mem_counter % self.mem_size
         self.state_mem[index] = state
         self.new_state_mem[index] = state_
@@ -106,8 +106,8 @@ class Agent:
         else:
             return np.random.choice(self.action_space)
 
-    def store_trajectory(self, state, action, reward, state_, done):
-        self.memory.store_trajectory(state, action, reward, state_, done)
+    def store_data(self, state, action, reward, state_, terminal):
+        self.memory.store_data(state, action, reward, state_, terminal)
 
     def decrement_epsilon(self):
         self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min

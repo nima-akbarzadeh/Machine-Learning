@@ -50,7 +50,7 @@ class ReplayBuffer:
         self.reward_mem = np.zeros(self.mem_size, dtype=np.float32)
         self.terminal_mem = np.zeros(self.mem_size, dtype=np.bool_)
 
-    def store_trajectory(self, state, action, reward, state_, terminal):
+    def store_data(self, state, action, reward, state_, terminal):
         index = self.mem_counter % self.mem_size
         self.state_mem[index] = state
         self.new_state_mem[index] = state_
@@ -114,8 +114,8 @@ class Agent:
         if self.learner_step % self.replace_counter == 0:
             self.q_trg.load_state_dict(self.q_net.state_dict())
 
-    def store_trajectory(self, state, action, reward, state_, done):
-        self.memory.store_trajectory(state, action, reward, state_, done)
+    def store_data(self, state, action, reward, state_, terminal):
+        self.memory.store_data(state, action, reward, state_, terminal)
 
     def decrement_epsilon(self):
         self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min
@@ -185,7 +185,7 @@ class Agent:
                 observation_, reward, done, truncated, info = env.step(action)
                 score += reward
                 terminal = done or truncated
-                self. store_trajectory(observation, action, reward, observation_, terminal)
+                self. store_data(observation, action, reward, observation_, terminal)
                 self.learn()
                 observation = observation_
 
