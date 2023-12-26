@@ -77,7 +77,7 @@ class ReplayBuffer:
 
 class Agent:
     def __init__(self, input_dims, n_actions, gamma, epsilon, lr=1e-3, batch_size=64,
-                 hidden_dims=256, mem_size=100000, eps_min=0.01, eps_dec=5e-4, replace=1000,
+                 hidden_dims=256, mem_size=100000, eps_min=0.01, eps_dec=5e-4, replace=100,
                  chkpt_dir='tmp/dddqn', device=DEVICE):
         self.action_space = [i for i in range(n_actions)]
         self.gamma = gamma
@@ -87,7 +87,7 @@ class Agent:
         self.lr = lr
         self.batch_size = batch_size
         self.mem_size = mem_size
-        self.replace_target_cnt = replace
+        self.replace_counter = replace
         self.chkpt_dir = chkpt_dir
         self.device = device
 
@@ -109,12 +109,12 @@ class Agent:
 
         return action
 
+    def replace_target_network(self):
+        if self.learner_step % self.replace_counter == 0:
+            self.q_nxt.load_state_dict(self.q_net.state_dict())
+
     def store_transition(self, state, action, reward, state_, done):
         self.memory.store_transition(state, action, reward, state_, done)
-
-    def replace_target_network(self):
-        if self.learner_step % self.replace_target_cnt == 0:
-            self.q_nxt.load_state_dict(self.q_net.state_dict())
 
     def decrement_epsilon(self):
         self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min

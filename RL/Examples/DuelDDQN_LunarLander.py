@@ -1,5 +1,5 @@
 import gym
-from RL.Agents.DDDQN import Agent
+from RL.Agents.DuelDDQN import Agent
 from RL.utils import plot_learning_curve
 import numpy as np
 
@@ -7,7 +7,7 @@ if __name__ == '__main__':
     env = gym.make('LunarLander-v2')
     n_episodes = 50
     load_agent = False
-    agent = Agent(input_dims=[8], n_actions=4, gamma=0.99, epsilon=1.0, replace=0.1*n_episodes)
+    agent = Agent(input_dims=[8], n_actions=4, gamma=0.99, epsilon=1.0)
 
     if load_agent:
         agent.load_models()
@@ -30,9 +30,11 @@ if __name__ == '__main__':
         eps_history.append(agent.epsilon)
         avg_score = np.mean(scores[-100:])
 
-        print('episode ', i, 'score %.2f' % score, 'average score %.2f' % avg_score,
-              'epsilon %.2f' % agent.epsilon)
+        print(
+            'episode ', i, 'score %.2f' % score, 'average score %.2f' % avg_score,
+            'epsilon %.2f' % agent.epsilon
+        )
 
     x = [i + 1 for i in range(n_episodes)]
-    filename = './RL/Plots/dddqn_lunarlander.png'
+    filename = './RL/Plots/duelddqn_lunarlander.png'
     plot_learning_curve(x, scores, eps_history, filename)

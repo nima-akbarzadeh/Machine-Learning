@@ -79,7 +79,7 @@ class ReplayBuffer:
 class Agent:
     def __init__(self, input_dims, n_actions, gamma, epsilon, lr=1e-3, batch_size=64,
                  hidden1_dims=256, hidden2_dims=256, mem_size=100000, eps_min=0.01, eps_dec=5e-4,
-                 chkpt_dir='tmp/dqn', device=DEVICE):
+                 replace=100, chkpt_dir='tmp/dqn', device=DEVICE):
         self.action_space = [i for i in range(n_actions)]
         self.gamma = gamma
         self.epsilon = epsilon
@@ -88,6 +88,7 @@ class Agent:
         self.lr = lr
         self.batch_size = batch_size
         self.mem_size = mem_size
+        self.replace_counter = replace
         self.chkpt_dir = chkpt_dir
         self.device = device
 
@@ -111,6 +112,9 @@ class Agent:
 
         return action
 
+    def replace_target_network(self):
+        if self.learner_step % self.replace_counter == 0:
+            self.q_nxt.load_state_dict(self.q_net.state_dict())
 
     def store_transition(self, state, action, reward, state_, done):
         self.memory.store_transition(state, action, reward, state_, done)
@@ -128,6 +132,9 @@ class Agent:
         if self.memory.mem_counter < self.batch_size:
             return
 
+        # update the target network
+        self.replace_target_network()
+
         # Sample memory and convert it to tensors
         states, actions, rewards, new_states, terminals = self.memory.sample_buffer(self.batch_size)
         states = torch.tensor(states).to(self.q_net.device)
@@ -140,7 +147,7 @@ class Agent:
         indices = np.arange(self.batch_size)
 
         # Get the Q-values for the current states
-        q_preds = self.q_net.forward(states)
+        q_preds = self.q_net.forward(states)[indices, actions]
 
         # Get the sampled Q-values for the next sampled states and choose the best action
         q_preds_ = self.q_net.forward(states_)
