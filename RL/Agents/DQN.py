@@ -76,7 +76,7 @@ class ReplayBuffer:
 class Agent:
     def __init__(self, env, input_dims, n_actions, gamma, epsilon, n_episodes, lr=1e-3,
                  batch_size=64, hidden1_dims=256, hidden2_dims=256, mem_size=100000, eps_min=0.01,
-                 eps_dec=5e-4, chkpt_dir='./tmp/dqn', device=DEVICE):
+                 eps_dec=5e-4, chkpt_dir='./tmp/dqn'):
         self.env = env
         self.action_space = [i for i in range(n_actions)]
         self.gamma = gamma
@@ -84,11 +84,8 @@ class Agent:
         self.eps_min = eps_min
         self.eps_dec = eps_dec
         self.n_episodes = n_episodes
-        self.lr = lr
         self.batch_size = batch_size
         self.mem_size = mem_size
-        self.chkpt_dir = chkpt_dir
-        self.device = device
 
         self.memory = ReplayBuffer(mem_size, input_dims)
         self.q_net = DeepQNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims,
