@@ -107,7 +107,7 @@ class Agent:
         else:
             return np.random.choice(self.action_space)
 
-    def replace_target_network(self):
+    def update_target_network(self):
         if self.learner_step % self.replace_limit == 0:
             self.q_trg.load_state_dict(self.q_net.state_dict())
 
@@ -130,7 +130,7 @@ class Agent:
             return
 
         # update the target network
-        self.replace_target_network()
+        self.update_target_network()
 
         # Sample memory and convert it to tensors
         states, actions, rewards, new_states, terminals = self.memory.sample_buffer(self.batch_size)
