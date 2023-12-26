@@ -95,7 +95,6 @@ class Agent:
         self.q_net = DuelingDeepQNetwork(input_dims, n_actions, hidden_dims, lr,
                                           'dueldqn_lunarlander', chkpt_dir)
 
-        self.learner_step = 0
         self.optimizer = optim.Adam(self.q_net.parameters(), lr=lr)
         self.loss = nn.MSELoss()
 
@@ -153,9 +152,6 @@ class Agent:
         loss = self.loss(q_preds, q_targets).to(self.q_net.device)
         loss.backward()
         self.optimizer.step()
-
-        # Increase the episode counter
-        self.learner_step += 1
 
         # Decrease the epsilon if possible
         self.decrement_epsilon()

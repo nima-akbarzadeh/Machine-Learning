@@ -96,7 +96,6 @@ class Agent:
 
         self.optimizer = optim.Adam(self.q_net.parameters(), lr=lr)
         self.loss = nn.MSELoss()
-        self.learner_step = 0
 
     def choose_action(self, observation):
         if np.random.random() > self.epsilon:
@@ -154,9 +153,6 @@ class Agent:
         loss = self.loss(q_preds, q_targets).to(self.q_net.device)
         loss.backward()
         self.optimizer.step()
-
-        # Increase the episode counter
-        self.learner_step += 1
 
         # Decrease the epsilon if possible
         self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min
