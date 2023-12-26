@@ -13,7 +13,7 @@ if __name__ == '__main__':
 
     agent = Agent(env, input_dims, n_actions, gamma, epsilon, n_episodes)
     if load_agent:
-        agent.load_models()
+        agent.load_model()
 
     scores, eps_history = agent.train(env, n_episodes)
 
