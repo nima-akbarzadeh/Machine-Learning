@@ -29,9 +29,8 @@ class DeepQNetwork(nn.Module):
     def forward(self, state):
         x = F.relu(self.fc1(state))
         x = F.relu(self.fc2(x))
-        actions = self.fc3(x)
 
-        return actions
+        return self.fc3(x)
 
     def save_checkpoint(self):
         print('... saving checkpoint ...')
@@ -105,12 +104,10 @@ class Agent:
             # Choose action according to the Q-network
             state = torch.tensor([observation]).to(self.q_net.device)
             actions = self.q_net.forward(state)
-            action = torch.argmax(actions).item()
+            return torch.argmax(actions).item()
         else:
             # Choose action randomly
-            action = np.random.choice(self.action_space)
-
-        return action
+            return np.random.choice(self.action_space)
 
     def replace_target_network(self):
         if self.learner_step % self.replace_counter == 0:

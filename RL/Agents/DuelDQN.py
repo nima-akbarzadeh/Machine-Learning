@@ -101,11 +101,9 @@ class Agent:
         if np.random.random() > self.epsilon:
             state = torch.tensor([observation], dtype=torch.float).to(self.q_net.device)
             _, advantage = self.q_net.forward(state)
-            action = torch.argmax(advantage).item()
+            return torch.argmax(advantage).item()
         else:
-            action = np.random.choice(self.action_space)
-
-        return action
+            return np.random.choice(self.action_space)
 
     def store_transition(self, state, action, reward, state_, done):
         self.memory.store_transition(state, action, reward, state_, done)
