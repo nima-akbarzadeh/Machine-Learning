@@ -68,25 +68,25 @@ class ReplayBuffer:
         actions = self.action_mem[batch]
         rewards = self.reward_mem[batch]
         states_ = self.new_state_mem[batch]
-        terminal = self.terminal_mem[batch]
+        terminals = self.terminal_mem[batch]
 
-        return states, actions, rewards, states_, terminal
+        return states, actions, rewards, states_, terminals
 
 
 class Agent:
-    def __init__(self, env, input_dims, n_actions, gamma, epsilon, n_episodes, lr=1e-3,
+    def __init__(self, env, input_dims, n_actions, gamma, epsilon, update_time, n_episodes, lr=1e-3,
                  batch_size=64, hidden_dims=256, mem_size=100000, eps_min=0.01, eps_dec=5e-4,
-                 update_limit=100, chkpt_dir='./tmp/duelddqn'):
+                 chkpt_dir='./tmp/duelddqn'):
         self.env = env
         self.action_space = [i for i in range(n_actions)]
         self.gamma = gamma
         self.epsilon = epsilon
         self.eps_min = eps_min
         self.eps_dec = eps_dec
+        self.update_time = update_time
         self.n_episodes = n_episodes
         self.batch_size = batch_size
         self.mem_size = mem_size
-        self.update_limit = update_limit
 
         self.memory = ReplayBuffer(mem_size, input_dims)
         self.q_net = DuelingDeepQNetwork(input_dims, n_actions, hidden_dims,
@@ -110,7 +110,7 @@ class Agent:
             return np.random.choice(self.action_space)
 
     def update_target_network(self):
-        if self.learner_step % self.update_limit == 0:
+        if self.learner_step % self.update_time == 0:
             self.q_trg.load_state_dict(self.q_net.state_dict())
 
     def store_data(self, state, action, reward, state_, terminal):

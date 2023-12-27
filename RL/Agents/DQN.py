@@ -68,9 +68,9 @@ class ReplayBuffer:
         actions = self.action_mem[batch]
         rewards = self.reward_mem[batch]
         states_ = self.new_state_mem[batch]
-        terminal = self.terminal_mem[batch]
+        terminals = self.terminal_mem[batch]
 
-        return states, actions, rewards, states_, terminal
+        return states, actions, rewards, states_, terminals
 
 
 class Agent:

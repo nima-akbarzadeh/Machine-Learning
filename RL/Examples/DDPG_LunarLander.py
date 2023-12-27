@@ -7,11 +7,13 @@ if __name__ == '__main__':
     input_dims = [8]
     n_actions = 2
     gamma = 0.99
-    epsilon = 1.0
+
+    update_factor = 0.001
+
     n_episodes = 5
     load_agent = False
 
-    agent = Agent(env, input_dims, n_actions, gamma, n_episodes)
+    agent = Agent(env, input_dims, n_actions, gamma, update_factor, n_episodes)
     if load_agent:
         agent.load_model()
 

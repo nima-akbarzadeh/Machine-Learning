@@ -162,15 +162,15 @@ class ReplayBuffer:
         actions = self.action_mem[batch]
         rewards = self.reward_mem[batch]
         states_ = self.new_state_mem[batch]
-        terminal = self.terminal_mem[batch]
+        terminals = self.terminal_mem[batch]
 
-        return states, actions, rewards, states_, terminal
+        return states, actions, rewards, states_, terminals
 
 
 class Agent(object):
-    def __init__(self, env, input_dims, n_actions, gamma, n_episodes, lr_actor=0.000025,
-                 lr_critic=0.00025, batch_size=64, hidden1_dims=256, hidden2_dims=256,
-                 mem_size=100000, update_factor=0.001, chkpt_dir='./tmp/ddpg'):
+    def __init__(self, env, input_dims, n_actions, gamma, update_factor, n_episodes,
+                 lr_actor=0.000025, lr_critic=0.00025, batch_size=64, hidden1_dims=256,
+                 hidden2_dims=256, mem_size=100000, chkpt_dir='./tmp/ddpg'):
         self.env = env
         self.gamma = gamma
         self.n_episodes = n_episodes
@@ -186,10 +186,10 @@ class Agent(object):
         self.act_trg = ActorNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims, lr_actor,
                                     'ddpg_actor2_landlunar', chkpt_dir)
 
-        self.val_net = CriticNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims, lr_critic,
-                                     'ddpg_critic1_landlunar', chkpt_dir)
-        self.val_trg = CriticNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims, lr_critic,
-                                     'ddpg_critic2_landlunar', chkpt_dir)
+        self.qval_net = CriticNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims, lr_critic,
+                                      'ddpg_critic1_landlunar', chkpt_dir)
+        self.qval_trg = CriticNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims, lr_critic,
+                                      'ddpg_critic2_landlunar', chkpt_dir)
 
     def choose_action(self, observation):
         self.act_net.eval()
@@ -206,20 +206,20 @@ class Agent(object):
     def save_model(self):
         self.act_net.save_checkpoint()
         self.act_trg.save_checkpoint()
-        self.val_net.save_checkpoint()
-        self.val_trg.save_checkpoint()
+        self.qval_net.save_checkpoint()
+        self.qval_trg.save_checkpoint()
 
     def load_model(self):
         self.act_net.load_checkpoint()
         self.act_trg.load_checkpoint()
-        self.val_net.load_checkpoint()
-        self.val_trg.load_checkpoint()
+        self.qval_net.load_checkpoint()
+        self.qval_trg.load_checkpoint()
 
     def update_target_network(self):
         act_net_dict = dict(self.act_net.named_parameters())
         act_trg_dict = dict(self.act_trg.named_parameters())
-        val_net_dict = dict(self.val_net.named_parameters())
-        val_trg_dict = dict(self.val_trg.named_parameters())
+        val_net_dict = dict(self.qval_net.named_parameters())
+        val_trg_dict = dict(self.qval_trg.named_parameters())
 
         for name in act_net_dict:
             act_net_dict[name] = self.rho * act_net_dict[name].clone() \
@@ -229,7 +229,7 @@ class Agent(object):
                                  + (1 - self.rho) * val_trg_dict[name].clone()
 
         self.act_trg.load_state_dict(act_net_dict)
-        self.val_trg.load_state_dict(val_net_dict)
+        self.qval_trg.load_state_dict(val_net_dict)
 
 
     def learn(self):
@@ -241,36 +241,36 @@ class Agent(object):
 
         # Sample memory and convert it to tensors
         states, actions, rewards, new_states, terminals = self.memory.sample_buffer(self.batch_size)
-        states = torch.tensor(states).to(self.val_net.device)
-        actions = torch.tensor(actions).to(self.val_net.device)
-        rewards = torch.tensor(rewards).to(self.val_net.device)
-        states_ = torch.tensor(new_states).to(self.val_net.device)
-        terminals = torch.tensor(terminals).to(self.val_net.device)
+        states = torch.tensor(states).to(self.qval_net.device)
+        actions = torch.tensor(actions).to(self.qval_net.device)
+        rewards = torch.tensor(rewards).to(self.qval_net.device)
+        states_ = torch.tensor(new_states).to(self.qval_net.device)
+        terminals = torch.tensor(terminals).to(self.qval_net.device)
 
         # Compute the target values to be used in loss function
         self.act_trg.eval()
-        self.val_trg.eval()
+        self.qval_trg.eval()
         target_actions_ = self.act_trg.forward(states_)
-        target_values_ = self.val_trg.forward(states_, target_actions_)
+        target_values_ = self.qval_trg.forward(states_, target_actions_)
         targets = []
         for j in range(self.batch_size):
             targets.append(rewards[j] + self.gamma * target_values_[j] * terminals[j])
-        targets = torch.tensor(targets).to(self.val_net.device)
+        targets = torch.tensor(targets).to(self.qval_net.device)
         targets = targets.view(self.batch_size, 1)
 
         # Compute the loss and backpropagate it through the network
-        self.val_net.train()
-        val_net_values = self.val_net.forward(states, actions)
-        self.val_net.optimizer.zero_grad()
+        self.qval_net.train()
+        val_net_values = self.qval_net.forward(states, actions)
+        self.qval_net.optimizer.zero_grad()
         val_net_loss = F.mse_loss(targets, val_net_values)
         val_net_loss.backward()
-        self.val_net.optimizer.step()
+        self.qval_net.optimizer.step()
 
-        self.val_net.eval()
+        self.qval_net.eval()
         self.act_net.train()
         mu = self.act_net.forward(states)
         self.act_net.optimizer.zero_grad()
-        actor_loss = torch.mean(-self.val_net.forward(states, mu))
+        actor_loss = torch.mean(-self.qval_net.forward(states, mu))
         actor_loss.backward()
         self.act_net.optimizer.step()
 
