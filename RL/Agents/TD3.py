@@ -206,9 +206,9 @@ class Agent:
         # Compute the target actions
         # The outer clamp is for taking the action in the feasible range
         self.act_trg.eval()
-        a_trg_ = self.act_trg.forward(states_)
-        a_trg_ = torch.clamp(
-            a_trg_ + torch.clamp(
+        actions_ = self.act_trg.forward(states_)
+        actions_ = torch.clamp(
+            actions_ + torch.clamp(
                 torch.tensor(np.random.normal(scale=0.2)),
                 -0.5, 0.5
             ),
@@ -218,8 +218,8 @@ class Agent:
         # Compute the target values
         self.qval1_trg.eval()
         self.qval2_trg.eval()
-        q_trg1_ = self.qval1_trg.forward(states_, a_trg_)
-        q_trg2_ = self.qval1_trg.forward(states_, a_trg_)
+        q_trg1_ = self.qval1_trg.forward(states_, actions_)
+        q_trg2_ = self.qval1_trg.forward(states_, actions_)
         q_trg1_[terminals] = 0.0
         q_trg2_[terminals] = 0.0
         q_trg1_ = q_trg1_.view(-1)

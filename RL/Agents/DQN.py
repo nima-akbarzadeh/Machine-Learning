@@ -118,6 +118,16 @@ class Agent:
     def load_model(self):
         self.q_net.load_checkpoint()
 
+    def get_targets(self, rewards, states_, terminals, indices):
+        # 1. Get the sampled Q-values for the next sampled states
+        # 2. Set the next sampled Q-values to 0 if the state is terminal
+        # 3. Choose the best action for those states
+        q_preds_ = self.q_net.forward(states_)
+        q_preds_[terminals] = 0.0
+        actions_ = torch.argmax(q_preds_, dim=1)
+
+        return rewards + self.gamma * q_preds_[indices, actions_]
+
     def learn(self):
         if self.memory.mem_counter < self.batch_size:
             return
@@ -133,20 +143,16 @@ class Agent:
         # index the batch elements
         indices = np.arange(self.batch_size)
 
-        # Compute the target values to be used in the loss function
-        # 1. Get the sampled Q-values for the next sampled states
-        # 2. Set the next sampled Q-values to 0 if the state is terminal
-        # 3. Choose the best action for those states
-        q_preds_ = self.q_net.forward(states_)
-        q_preds_[terminals] = 0.0
-        actions_ = torch.argmax(q_preds_, dim=1)
-        q_targets = rewards + self.gamma * q_preds_[indices, actions_]
+        # Compute the target values
+        q_targets = self.get_targets(rewards, states_, terminals, indices)
 
-        # Get the Q-values for the current states
+        # Compute the current q-values
         q_preds = self.q_net.forward(states)[indices, actions]
 
-        # Compute the loss and backpropagate it through the network
+        # Compute the loss
         loss = self.loss(q_preds, q_targets).to(self.q_net.device)
+
+        # Backpropagate
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()

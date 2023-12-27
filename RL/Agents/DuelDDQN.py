@@ -116,9 +116,6 @@ class Agent:
     def store_data(self, state, action, reward, state_, terminal):
         self.memory.store_data(state, action, reward, state_, terminal)
 
-    def decrement_epsilon(self):
-        self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min
-
     def save_model(self):
         self.q_net.save_checkpoint()
         self.q_trg.save_checkpoint()
@@ -126,6 +123,19 @@ class Agent:
     def load_model(self):
         self.q_net.load_checkpoint()
         self.q_trg.load_checkpoint()
+
+    def get_targets(self, rewards, states_, terminals, indices):
+        # Get the sampled Q-values for the next sampled states and choose the best action
+        vals_qnet_, advs_qnet_ = self.q_net.forward(states_)
+        q_preds_ = torch.add(vals_qnet_, (advs_qnet_ - advs_qnet_.mean(dim=1, keepdim=True)))
+        actions_ = torch.argmax(q_preds_, dim=1)
+
+        # Compute the target values
+        vals_qtrg_, advs_qtrg_ = self.q_trg.forward(states_)
+        q_trg_ = torch.add(vals_qtrg_, (advs_qtrg_ - advs_qtrg_.mean(dim=1, keepdim=True)))
+        q_trg_[terminals] = 0.0
+
+        return rewards + self.gamma * q_trg_[indices, actions_]
 
     def learn(self):
         if self.memory.mem_counter < self.batch_size:
@@ -145,23 +155,18 @@ class Agent:
         # index the batch elements
         indices = np.arange(self.batch_size)
 
-        # Get the sampled Q-values for the next sampled states and choose the best action
-        vals_qnet_, advs_qnet_ = self.q_net.forward(states_)
-        q_preds_ = torch.add(vals_qnet_, (advs_qnet_ - advs_qnet_.mean(dim=1, keepdim=True)))
-        actions_ = torch.argmax(q_preds_, dim=1)
-        # Compute the target Q-value
-        vals_qtrg_, advs_qtrg_ = self.q_trg.forward(states_)
-        q_trg_ = torch.add(vals_qtrg_, (advs_qtrg_ - advs_qtrg_.mean(dim=1, keepdim=True)))
-        q_trg_[terminals] = 0.0
-        q_targets = rewards + self.gamma * q_trg_[indices, actions_]
+        # Compute the target values
+        q_targets = self.get_targets(rewards, states_, terminals, indices)
 
-        # Get the Q-values for the current states
+        # Compute the current q-values
         vals_qnet, advs_qnet = self.q_net.forward(states)
         q_preds = torch.add(vals_qnet,
                             (advs_qnet - advs_qnet.mean(dim=1, keepdim=True)))[indices, actions]
 
-        # Compute the loss and backpropagate it through the network
+        # Compute the loss
         loss = self.loss(q_preds, q_targets).to(self.q_net.device)
+
+        # Backpropagate
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -170,7 +175,7 @@ class Agent:
         self.learner_step += 1
 
         # Decrease the epsilon if possible
-        self.decrement_epsilon()
+        self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min
 
     def train(self):
         scores, eps_history = [], []

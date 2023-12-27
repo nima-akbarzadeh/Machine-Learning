@@ -9,8 +9,7 @@ if __name__ == '__main__':
     gamma = 0.99
 
     update_factor = 0.001
-
-    n_episodes = 5
+    n_episodes = 100
     load_agent = False
 
     agent = Agent(env, input_dims, n_actions, gamma, update_factor, n_episodes)

@@ -100,33 +100,20 @@ class Agent(mp.Process):
         self.rewards.append(reward)
 
     # Compute the returns over every step of the trajectory
-    def get_return(self, terminal):
-        states = torch.tensor(np.array(self.states), dtype=torch.float)
-        v, _ = self.local_ac.forward(states)
+    def get_targets(self, states, terminal):
+        self.local_ac.eval()
+        vals, _ = self.local_ac.forward(states)
 
-        returns = []
-        discounted_sum = v[-1] * (1 - int(terminal))
+        v_targets = []
+        discounted_sum = vals[-1] * (1 - int(terminal))
         for reward in self.rewards[::-1]:
             discounted_sum = reward + self.gamma * discounted_sum
-            returns.append(discounted_sum)
-        returns.reverse()
+            v_targets.append(discounted_sum)
+        v_targets.reverse()
 
-        return torch.tensor(returns, dtype=torch.float)
+        self.local_ac.train()
 
-    def get_loss(self, terminal):
-        states = torch.tensor(np.array(self.states), dtype=torch.float)
-        actions = torch.tensor(np.array(self.actions), dtype=torch.float)
-
-        returns = self.get_return(terminal)
-        val, pol = self.local_ac.forward(states)
-
-        values = val.squeeze()
-        critic_loss = (returns - values) ** 2
-
-        prob_dist = Categorical(torch.softmax(pol, dim=1))
-        actor_loss = -prob_dist.log_prob(actions) * (returns - values)
-
-        return (critic_loss + actor_loss).mean()
+        return torch.tensor(v_targets, dtype=torch.float)
 
     def choose_action(self, observation):
         self.local_ac.eval()
@@ -146,10 +133,29 @@ class Agent(mp.Process):
 
     def learn(self, terminal):
         if self.learner_step % self.update_time == 0 or terminal:
-            # Compute the loss and backpropagate it through the network
-            loss = self.get_loss(terminal)
+            states = torch.tensor(np.array(self.states), dtype=torch.float)
+            actions = torch.tensor(np.array(self.actions), dtype=torch.float)
+
+            # Compute the target values
+            targets = self.get_targets(states, terminal)
+
+            # Get the current values
+            vals, pols = self.local_ac.forward(states)
+            values = vals.squeeze()
+
+            # Compute the critic loss
+            critic_loss = (targets - values) ** 2
+
+            # Compute the actor loss
+            probs_dist = Categorical(torch.softmax(pols, dim=1))
+            actor_loss = -probs_dist.log_prob(actions) * (targets - values)
+
+            # Compute the total loss
+            total_loss = (critic_loss + actor_loss).mean()
+
+            # Backpropagate
             self.optimizer.zero_grad()
-            loss.backward()
+            total_loss.backward()
             for local_param, global_param in \
                     zip(self.local_ac.parameters(), self.global_actor_critic.parameters()):
                 global_param._grad = local_param.grad

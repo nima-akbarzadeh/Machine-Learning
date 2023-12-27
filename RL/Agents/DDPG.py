@@ -231,6 +231,19 @@ class Agent(object):
         self.act_trg.load_state_dict(act_net_dict)
         self.qval_trg.load_state_dict(val_net_dict)
 
+    def get_targets(self, rewards, states_, terminals):
+        # Compute the target actions
+        self.act_trg.eval()
+        actions_ = self.act_trg.forward(states_)
+
+        # Compute the target values
+        self.qval_trg.eval()
+        q_trg_ = self.qval_trg.forward(states_, actions_)
+        q_trg_[terminals] = 0.0
+        q_trg_ = q_trg_.view(-1)
+        q_targets = rewards + self.gamma * q_trg_
+
+        return q_targets.view(self.batch_size, 1)
 
     def learn(self):
         if self.memory.mem_counter < self.batch_size:
@@ -247,37 +260,33 @@ class Agent(object):
         states_ = torch.tensor(new_states).to(self.qval_net.device)
         terminals = torch.tensor(terminals).to(self.qval_net.device)
 
-        # Compute the target actions
-        self.act_trg.eval()
-        a_trg_ = self.act_trg.forward(states_)
+        # Compute the target values
+        q_targets = self.get_targets(rewards, states_, terminals)
 
-        # Compute the target values to be used in loss function
-        self.qval_trg.eval()
-        q_trg_ = self.qval_trg.forward(states_, a_trg_)
-        q_targets = []
-        for j in range(self.batch_size):
-            q_targets.append(rewards[j] + self.gamma * q_trg_[j] * terminals[j])
-        q_targets = torch.tensor(q_targets).to(self.qval_net.device)
-        q_targets = q_targets.view(self.batch_size, 1)
-
-        # Get the Q-values for the current states and actions
+        # Compute the current q-values
         self.qval_net.train()
         q_preds = self.qval_net.forward(states, actions)
 
-        # Compute the loss and backpropagate it through the network
-        val_net_loss = F.mse_loss(q_targets, q_preds)
+        # Compute the critic loss
+        critic_loss = F.mse_loss(q_targets, q_preds)
+
+        # Backpropagate
         self.qval_net.optimizer.zero_grad()
-        val_net_loss.backward()
+        critic_loss.backward()
         self.qval_net.optimizer.step()
 
+        # Compute the actor loss
         self.qval_net.eval()
         self.act_net.train()
         action = self.act_net.forward(states)
         actor_loss = torch.mean(-self.qval_net.forward(states, action))
+
+        # Backpropagate
         self.act_net.optimizer.zero_grad()
         actor_loss.backward()
         self.act_net.optimizer.step()
 
+        # Update the target network
         self.update_target_network()
 
     def train(self):

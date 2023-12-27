@@ -165,47 +165,58 @@ class Agent:
         self.act_net.load_checkpoint()
         self.val_net.load_checkpoint()
 
+    def get_advantages(self, rewards, vals, terminals):
+        # Compute the advantage for each step in the epoch
+        # Note the sequence of rewards_np is not shuffled
+        advantages = np.zeros(len(rewards), dtype=np.float32)
+        for t in range(len(rewards) - 1):
+            discount = 1
+            a_t = 0
+            for k in range(t, len(rewards) - 1):
+                a_t += discount * (
+                        rewards[k] + self.gamma * vals[k + 1] * (1 - int(terminals[k])) - vals[k]
+                )
+                discount *= self.gamma * self.smoothing_lambda
+            advantages[t] = a_t
+
+        return torch.tensor(advantages).to(self.act_net.device)
+
     def learn(self):
         for _ in range(self.n_epochs):
-            states_arr, actions_arr, logprobs_arr, vals_arr, rewards_arr, terminals_arr, batches \
+            states_np, actions_np, logprobs_np, vals_np, rewards_np, terminals_np, batches \
                 = self.memory.generate_batches()
 
-            # Compute the advantage for each step in the epoch
-            # Note the sequence of rewards_arr is not shuffled
-            advantage = np.zeros(len(rewards_arr), dtype=np.float32)
-            for t in range(len(rewards_arr) - 1):
-                discount = 1
-                a_t = 0
-                for k in range(t, len(rewards_arr) - 1):
-                    a_t += discount * (rewards_arr[k]
-                                       + self.gamma * vals_arr[k + 1] * (1 - int(terminals_arr[k]))
-                                       - vals_arr[k])
-                    discount *= self.gamma * self.smoothing_lambda
-                advantage[t] = a_t
-            advantage = torch.tensor(advantage).to(self.act_net.device)
-
-            values = torch.tensor(vals_arr).to(self.act_net.device)
+            advantages = self.get_advantages(rewards_np, vals_np, terminals_np)
+            values = torch.tensor(vals_np).to(self.act_net.device)
             for batch in batches:
-                states = torch.tensor(states_arr[batch], dtype=torch.float).to(self.act_net.device)
-                actions = torch.tensor(actions_arr[batch]).to(self.act_net.device)
-                old_logprobs = torch.tensor(logprobs_arr[batch]).to(self.act_net.device)
+                states = torch.tensor(states_np[batch], dtype=torch.float).to(self.act_net.device)
+                actions = torch.tensor(actions_np[batch]).to(self.act_net.device)
+                old_logprobs = torch.tensor(logprobs_np[batch]).to(self.act_net.device)
 
-                v_targets = advantage[batch] + values[batch]
+                # Compute the critic target values
+                v_targets = advantages[batch] + values[batch]
+
+                # Compute the critic current values
                 v_preds = self.val_net(states)
                 v_preds = torch.squeeze(v_preds)
+
+                # Compute the critic loss
                 critic_loss = (v_targets - v_preds) ** 2
                 critic_loss = critic_loss.mean()
 
+                # Compute the actor loss
                 actor_dist = self.act_net(states)
                 new_logprobs = actor_dist.log_prob(actions)
                 prob_ratio = (new_logprobs - old_logprobs).exp()
-                weighted_probs = advantage[batch] * prob_ratio
+                weighted_probs = advantages[batch] * prob_ratio
                 weighted_clipped_probs = torch.clamp(prob_ratio, 1 - self.policy_clip,
-                                                     1 + self.policy_clip) * advantage[batch]
+                                                     1 + self.policy_clip) * advantages[batch]
                 actor_loss = -torch.min(weighted_probs, weighted_clipped_probs).mean()
 
+                # Compute the total loss
                 total_loss = actor_loss + 0.5 * critic_loss
 
+                # Backpropagate
                 self.act_net.optimizer.zero_grad()
                 self.val_net.optimizer.zero_grad()
                 total_loss.backward()

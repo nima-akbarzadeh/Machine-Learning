@@ -117,6 +117,15 @@ class Agent:
     def load_model(self):
         self.q_net.load_checkpoint()
 
+    def get_targets(self, rewards, states_, terminals, indices):
+        # Get the sampled Q-values for the next sampled states and choose the best action
+        vals_qnet_, advs_qnet_ = self.q_net.forward(states_)
+        q_preds_ = torch.add(vals_qnet_, (advs_qnet_ - advs_qnet_.mean(dim=1, keepdim=True)))
+        q_preds_[terminals] = 0.0
+        actions_ = torch.argmax(q_preds_, dim=1)
+
+        return rewards + self.gamma * q_preds_[indices, actions_]
+
     def learn(self):
         if self.memory.mem_counter < self.batch_size:
             return
@@ -132,15 +141,10 @@ class Agent:
         # index the batch elements
         indices = np.arange(self.batch_size)
 
-        # Get the sampled Q-values for the next sampled states and choose the best action
-        vals_qnet_, advs_qnet_ = self.q_net.forward(states_)
-        q_preds_ = torch.add(vals_qnet_, (advs_qnet_ - advs_qnet_.mean(dim=1, keepdim=True)))
-        q_preds_[terminals] = 0.0
-        actions_ = torch.argmax(q_preds_, dim=1)
-        # Compute the target Q-value
-        q_targets = rewards + self.gamma * q_preds_[indices, actions_]
+        # Compute the target values
+        q_targets = self.get_targets(rewards, states_, terminals, indices)
 
-        # Get the Q-values for the current states
+        # the current q-values
         vals_qnet, advs_qnet = self.q_net.forward(states)
         q_preds = torch.add(vals_qnet,
                             (advs_qnet - advs_qnet.mean(dim=1, keepdim=True)))[indices, actions]
