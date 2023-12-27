@@ -8,7 +8,7 @@ if __name__ == '__main__':
     n_actions = 2
     gamma = 0.99
     epsilon = 1.0
-    n_episodes = 50
+    n_episodes = 5
     load_agent = False
 
     agent = Agent(env, input_dims, n_actions, gamma, n_episodes)

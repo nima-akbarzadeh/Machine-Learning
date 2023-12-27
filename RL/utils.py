@@ -3,7 +3,7 @@ import numpy as np
 import gym
 
 
-def plot_learning_scores(scores, filename, x=None, window=5):
+def plot_learning_scores(x, scores, filename, window=5):
     N = len(scores)
     running_avg = np.empty(N)
     for t in range(N):
