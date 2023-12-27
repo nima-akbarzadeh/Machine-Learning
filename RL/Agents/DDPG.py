@@ -246,6 +246,7 @@ class Agent(object):
         return q_targets.view(self.batch_size, 1)
 
     def learn(self):
+        # Off-policy learning
         if self.memory.mem_counter < self.batch_size:
             return
 

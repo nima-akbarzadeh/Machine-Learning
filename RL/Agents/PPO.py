@@ -182,6 +182,7 @@ class Agent:
         return torch.tensor(advantages).to(self.act_net.device)
 
     def learn(self):
+        # On-policy learning
         for _ in range(self.n_epochs):
             states_np, actions_np, logprobs_np, vals_np, rewards_np, terminals_np, batches \
                 = self.memory.generate_batches()
