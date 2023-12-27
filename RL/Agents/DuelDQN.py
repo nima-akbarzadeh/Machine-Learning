@@ -48,7 +48,7 @@ class ReplayBuffer:
         self.new_state_mem = np.zeros((self.mem_size, *input_dims), dtype=np.float32)
         self.action_mem = np.zeros(self.mem_size, dtype=np.int32)
         self.reward_mem = np.zeros(self.mem_size, dtype=np.float32)
-        self.terminal_mem = np.zeros(self.mem_size, dtype=np.bool_)
+        self.terminal_mem = np.zeros(self.mem_size, dtype=np.bool8)
 
     def store_data(self, state, action, reward, state_, terminal):
         index = self.mem_counter % self.mem_size
@@ -97,8 +97,8 @@ class Agent:
 
     def choose_action(self, observation):
         if np.random.random() > self.epsilon:
-            state = torch.tensor([observation], dtype=torch.float).to(self.q_net.device)
             self.q_net.eval()
+            state = torch.tensor([observation], dtype=torch.float).to(self.q_net.device)
             _, advantage = self.q_net.forward(state)
             self.q_net.train()
             return torch.argmax(advantage).item()
@@ -155,18 +155,18 @@ class Agent:
         # Decrease the epsilon if possible
         self.decrement_epsilon()
 
-    def train(self, env, n_episodes):
+    def train(self):
         scores, eps_history = [], []
-        for i in range(n_episodes):
+        for i in range(self.n_episodes):
             score = 0
             terminal = False
-            observation = env.reset()[0]
+            observation = self.env.reset()[0]
             while not terminal:
                 action = self.choose_action(observation)
-                observation_, reward, done, truncated, info = env.step(action)
+                observation_, reward, done, truncated, info = self.env.step(action)
                 score += reward
                 terminal = done or truncated
-                self.store_trajectory(observation, action, reward, observation_, terminal)
+                self.store_data(observation, action, reward, observation_, terminal)
                 self.learn()
                 observation = observation_
 

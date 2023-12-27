@@ -48,7 +48,7 @@ class ReplayBuffer:
         self.new_state_mem = np.zeros((self.mem_size, *input_dims), dtype=np.float32)
         self.action_mem = np.zeros(self.mem_size, dtype=np.int32)
         self.reward_mem = np.zeros(self.mem_size, dtype=np.float32)
-        self.terminal_mem = np.zeros(self.mem_size, dtype=np.bool_)
+        self.terminal_mem = np.zeros(self.mem_size, dtype=np.bool8)
 
     def store_data(self, state, action, reward, state_, terminal):
         index = self.mem_counter % self.mem_size
@@ -76,7 +76,7 @@ class ReplayBuffer:
 class Agent:
     def __init__(self, env, input_dims, n_actions, gamma, epsilon, n_episodes, lr=1e-3,
                  batch_size=64, hidden_dims=256, mem_size=100000, eps_min=0.01, eps_dec=5e-4,
-                 replace=100, chkpt_dir='./tmp/duelddqn'):
+                 update_limit=100, chkpt_dir='./tmp/duelddqn'):
         self.env = env
         self.action_space = [i for i in range(n_actions)]
         self.gamma = gamma
@@ -86,7 +86,7 @@ class Agent:
         self.n_episodes = n_episodes
         self.batch_size = batch_size
         self.mem_size = mem_size
-        self.replace_limit = replace
+        self.update_limit = update_limit
 
         self.memory = ReplayBuffer(mem_size, input_dims)
         self.q_net = DuelingDeepQNetwork(input_dims, n_actions, hidden_dims,
@@ -101,8 +101,8 @@ class Agent:
 
     def choose_action(self, observation):
         if np.random.random() > self.epsilon:
-            state = torch.tensor([observation], dtype=torch.float).to(self.q_net.device)
             self.q_net.eval()
+            state = torch.tensor([observation], dtype=torch.float).to(self.q_net.device)
             _, advantage = self.q_net.forward(state)
             self.q_net.train()
             return torch.argmax(advantage).item()
@@ -110,7 +110,7 @@ class Agent:
             return np.random.choice(self.action_space)
 
     def update_target_network(self):
-        if self.learner_step % self.replace_limit == 0:
+        if self.learner_step % self.update_limit == 0:
             self.q_trg.load_state_dict(self.q_net.state_dict())
 
     def store_data(self, state, action, reward, state_, terminal):
@@ -173,15 +173,15 @@ class Agent:
         # Decrease the epsilon if possible
         self.decrement_epsilon()
 
-    def train(self, env, n_episodes):
+    def train(self):
         scores, eps_history = [], []
-        for i in range(n_episodes):
+        for i in range(self.n_episodes):
             score = 0
             terminal = False
-            observation = env.reset()[0]
+            observation = self.env.reset()[0]
             while not terminal:
                 action = self.choose_action(observation)
-                observation_, reward, done, truncated, info = env.step(action)
+                observation_, reward, done, truncated, info = self.env.step(action)
                 score += reward
                 terminal = done or truncated
                 self. store_data(observation, action, reward, observation_, terminal)

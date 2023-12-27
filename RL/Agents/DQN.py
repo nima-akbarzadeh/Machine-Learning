@@ -48,7 +48,7 @@ class ReplayBuffer:
         self.new_state_mem = np.zeros((self.mem_size, *input_dims), dtype=np.float32)
         self.action_mem = np.zeros(self.mem_size, dtype=np.int32)
         self.reward_mem = np.zeros(self.mem_size, dtype=np.float32)
-        self.terminal_mem = np.zeros(self.mem_size, dtype=np.bool_)
+        self.terminal_mem = np.zeros(self.mem_size, dtype=np.bool8)
 
     def store_data(self, state, action, reward, state_, terminal):
         index = self.mem_counter % self.mem_size
@@ -97,8 +97,8 @@ class Agent:
     def choose_action(self, observation):
         if np.random.random() > self.epsilon:
             # Choose action according to the Q-network
-            state = torch.tensor([observation]).to(self.q_net.device)
             self.q_net.eval()
+            state = torch.tensor([observation]).to(self.q_net.device)
             actions = self.q_net.forward(state)
             self.q_net.train()
             return torch.argmax(actions).item()
@@ -133,21 +133,18 @@ class Agent:
         # index the batch elements
         indices = np.arange(self.batch_size)
 
-        # Get the Q-values for the current states
-        q_preds = self.q_net.forward(states)[indices, actions]
-
-        # Get the sampled Q-values for the next sampled states
-        # Set the next sampled Q-values to 0 if the state is terminal
-        # Choose the best action for those states
+        # Compute the target values to be used in the loss function
+        # 1. Get the sampled Q-values for the next sampled states
+        # 2. Set the next sampled Q-values to 0 if the state is terminal
+        # 3. Choose the best action for those states
         q_preds_ = self.q_net.forward(states_)
         q_preds_[terminals] = 0.0
         actions_ = torch.argmax(q_preds_, dim=1)
-
-        # Compute the target Q-value
         q_targets = rewards + self.gamma * q_preds_[indices, actions_]
 
         # Compute the loss and backpropagate it through the network
         self.optimizer.zero_grad()
+        q_preds = self.q_net.forward(states)[indices, actions]
         loss = self.loss(q_preds, q_targets).to(self.q_net.device)
         loss.backward()
         self.optimizer.step()
@@ -155,15 +152,15 @@ class Agent:
         # Decrease the epsilon if possible
         self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_min else self.eps_min
 
-    def train(self, env, n_episodes):
+    def train(self):
         scores, eps_history = [], []
-        for i in range(n_episodes):
+        for i in range(self.n_episodes):
             score = 0
             terminal = False
-            observation = env.reset()[0]
+            observation = self.env.reset()[0]
             while not terminal:
                 action = self.choose_action(observation)
-                observation_, reward, done, truncated, info = env.step(action)
+                observation_, reward, done, truncated, info = self.env.step(action)
                 score += reward
                 terminal = done or truncated
                 self.store_data(observation, action, reward, observation_, terminal)

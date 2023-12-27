@@ -15,7 +15,7 @@ if __name__ == '__main__':
     if load_agent:
         agent.load_model()
 
-    scores, eps_history = agent.train(env, n_episodes)
+    scores, eps_history = agent.train()
 
     filename = './RL/Plots/dqn_lunarlander.png'
     plot_learning_curve([i + 1 for i in range(n_episodes)], scores, eps_history, filename)
