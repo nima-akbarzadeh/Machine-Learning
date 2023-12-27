@@ -132,19 +132,18 @@ class Agent:
         # index the batch elements
         indices = np.arange(self.batch_size)
 
-        # Get the Q-values for the current states
-        vals_qnet, advs_qnet = self.q_net.forward(states)
-        q_preds = torch.add(vals_qnet,
-                            (advs_qnet - advs_qnet.mean(dim=1, keepdim=True)))[indices, actions]
-
         # Get the sampled Q-values for the next sampled states and choose the best action
         vals_qnet_, advs_qnet_ = self.q_net.forward(states_)
         q_preds_ = torch.add(vals_qnet_, (advs_qnet_ - advs_qnet_.mean(dim=1, keepdim=True)))
         q_preds_[terminals] = 0.0
         actions_ = torch.argmax(q_preds_, dim=1)
-
         # Compute the target Q-value
         q_targets = rewards + self.gamma * q_preds_[indices, actions_]
+
+        # Get the Q-values for the current states
+        vals_qnet, advs_qnet = self.q_net.forward(states)
+        q_preds = torch.add(vals_qnet,
+                            (advs_qnet - advs_qnet.mean(dim=1, keepdim=True)))[indices, actions]
 
         # Compute the loss and backpropagate it through the network
         loss = self.loss(q_preds, q_targets).to(self.q_net.device)

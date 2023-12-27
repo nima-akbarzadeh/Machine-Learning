@@ -150,7 +150,6 @@ class Agent:
         # Get the sampled Q-values for the next sampled states and choose the best action
         q_preds_ = self.q_net.forward(states_)
         actions_ = torch.argmax(q_preds_, dim=1)
-
         # Compute the target Q-value
         q_trg_ = self.q_trg.forward(states_)
         q_trg_[terminals] = 0.0

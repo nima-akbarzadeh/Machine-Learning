@@ -142,8 +142,10 @@ class Agent:
         actions_ = torch.argmax(q_preds_, dim=1)
         q_targets = rewards + self.gamma * q_preds_[indices, actions_]
 
-        # Compute the loss and backpropagate it through the network
+        # Get the Q-values for the current states
         q_preds = self.q_net.forward(states)[indices, actions]
+
+        # Compute the loss and backpropagate it through the network
         loss = self.loss(q_preds, q_targets).to(self.q_net.device)
         self.optimizer.zero_grad()
         loss.backward()

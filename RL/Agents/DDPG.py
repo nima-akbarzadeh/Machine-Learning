@@ -173,10 +173,10 @@ class Agent(object):
                  hidden2_dims=256, mem_size=100000, chkpt_dir='./tmp/ddpg'):
         self.env = env
         self.gamma = gamma
+        self.rho = update_factor
         self.n_episodes = n_episodes
         self.batch_size = batch_size
         self.mem_size = mem_size
-        self.rho = update_factor
 
         self.memory = ReplayBuffer(mem_size, input_dims, n_actions)
         self.noise = ActionNoise(mu=np.zeros(n_actions))
@@ -247,29 +247,33 @@ class Agent(object):
         states_ = torch.tensor(new_states).to(self.qval_net.device)
         terminals = torch.tensor(terminals).to(self.qval_net.device)
 
-        # Compute the target values to be used in loss function
+        # Compute the target actions
         self.act_trg.eval()
+        a_trg_ = self.act_trg.forward(states_)
+
+        # Compute the target values to be used in loss function
         self.qval_trg.eval()
-        target_actions_ = self.act_trg.forward(states_)
-        target_values_ = self.qval_trg.forward(states_, target_actions_)
-        targets = []
+        q_trg_ = self.qval_trg.forward(states_, a_trg_)
+        q_targets = []
         for j in range(self.batch_size):
-            targets.append(rewards[j] + self.gamma * target_values_[j] * terminals[j])
-        targets = torch.tensor(targets).to(self.qval_net.device)
-        targets = targets.view(self.batch_size, 1)
+            q_targets.append(rewards[j] + self.gamma * q_trg_[j] * terminals[j])
+        q_targets = torch.tensor(q_targets).to(self.qval_net.device)
+        q_targets = q_targets.view(self.batch_size, 1)
+
+        # Get the Q-values for the current states and actions
+        self.qval_net.train()
+        q_preds = self.qval_net.forward(states, actions)
 
         # Compute the loss and backpropagate it through the network
-        self.qval_net.train()
-        val_net_values = self.qval_net.forward(states, actions)
-        val_net_loss = F.mse_loss(targets, val_net_values)
+        val_net_loss = F.mse_loss(q_targets, q_preds)
         self.qval_net.optimizer.zero_grad()
         val_net_loss.backward()
         self.qval_net.optimizer.step()
 
         self.qval_net.eval()
         self.act_net.train()
-        mu = self.act_net.forward(states)
-        actor_loss = torch.mean(-self.qval_net.forward(states, mu))
+        action = self.act_net.forward(states)
+        actor_loss = torch.mean(-self.qval_net.forward(states, action))
         self.act_net.optimizer.zero_grad()
         actor_loss.backward()
         self.act_net.optimizer.step()
