@@ -102,7 +102,7 @@ class Agent:
     def choose_action(self, observation):
         if np.random.random() > self.epsilon:
             self.q_net.eval()
-            state = torch.tensor([observation], dtype=torch.float).to(self.q_net.device)
+            state = torch.tensor(observation, dtype=torch.float).to(self.q_net.device)
             _, advantage = self.q_net.forward(state)
             self.q_net.train()
             return torch.argmax(advantage).item()
@@ -162,8 +162,8 @@ class Agent:
         q_targets = rewards + self.gamma * q_trg_[indices, actions_]
 
         # Compute the loss and backpropagate it through the network
-        self.optimizer.zero_grad()
         loss = self.loss(q_preds, q_targets).to(self.q_net.device)
+        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 

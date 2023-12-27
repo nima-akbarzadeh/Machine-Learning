@@ -5,8 +5,7 @@ from RL.utils import plot_learning_scores
 if __name__ == '__main__':
     env = gym.make('CartPole-v1')
     input_dims = env.observation_space.shape
-    print(env.action_space)
-    n_actions = env.action_space.shape[0]
+    n_actions = env.action_space.n
     gamma = 0.99
 
     gae_lambda = 0.95

@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Categorical
 from abc import ABC
+import numpy as np
 
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -88,19 +89,19 @@ class Agent(mp.Process):
         self.actions = []
         self.rewards = []
 
-    def clear_trajectory(self):
+    def clear_data(self):
         self.states = []
         self.actions = []
         self.rewards = []
 
-    def store_trajectory(self, state, action, reward):
+    def store_data(self, state, action, reward):
         self.states.append(state)
         self.actions.append(action)
         self.rewards.append(reward)
 
     # Compute the returns over every step of the trajectory
     def get_return(self, terminal):
-        states = torch.tensor(self.states, dtype=torch.float)
+        states = torch.tensor(np.array(self.states), dtype=torch.float)
         v, _ = self.local_ac.forward(states)
 
         returns = []
@@ -113,8 +114,8 @@ class Agent(mp.Process):
         return torch.tensor(returns, dtype=torch.float)
 
     def get_loss(self, terminal):
-        states = torch.tensor(self.states, dtype=torch.float)
-        actions = torch.tensor(self.actions, dtype=torch.float)
+        states = torch.tensor(np.array(self.states), dtype=torch.float)
+        actions = torch.tensor(np.array(self.actions), dtype=torch.float)
 
         returns = self.get_return(terminal)
         val, pol = self.local_ac.forward(states)
@@ -129,12 +130,13 @@ class Agent(mp.Process):
 
     def choose_action(self, observation):
         self.local_ac.eval()
-        state = torch.tensor([observation], dtype=torch.float)
+        state = torch.tensor(observation, dtype=torch.float)
         val, pol = self.local_ac.forward(state)
-        prob_dist = Categorical(torch.softmax(pol, dim=1))
+        prob_dist = Categorical(torch.softmax(pol, dim=0))
+        action = prob_dist.sample().numpy()
         self.local_ac.train()
 
-        return prob_dist.sample().numpy()[0]
+        return action
 
     def save_model(self):
         self.local_ac.save_checkpoint()
@@ -145,8 +147,8 @@ class Agent(mp.Process):
     def learn(self, terminal):
         if self.learner_step % self.update_time == 0 or terminal:
             # Compute the loss and backpropagate it through the network
-            self.optimizer.zero_grad()
             loss = self.get_loss(terminal)
+            self.optimizer.zero_grad()
             loss.backward()
             for local_param, global_param in \
                     zip(self.local_ac.parameters(), self.global_actor_critic.parameters()):
@@ -155,7 +157,7 @@ class Agent(mp.Process):
 
             # load the global architecture into the local one and start from scratch
             self.local_ac.load_state_dict(self.global_actor_critic.state_dict())
-            self.clear_trajectory()
+            self.clear_data()
 
         # Increase the episode counter
         self.learner_step += 1
@@ -165,13 +167,13 @@ class Agent(mp.Process):
             terminal = False
             observation = self.env.reset()[0]
             score = 0
-            self.clear_trajectory()
+            self.clear_data()
             while not terminal:
                 action = self.choose_action(observation)
                 observation_, reward, done, truncated, info = self.env.step(action)
                 score += reward
                 terminal = done or truncated
-                self.store_trajectory(observation, action, reward)
+                self.store_data(observation, action, reward)
                 self.learn(terminal)
                 observation = observation_
 

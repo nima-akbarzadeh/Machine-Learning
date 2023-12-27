@@ -261,16 +261,16 @@ class Agent(object):
         # Compute the loss and backpropagate it through the network
         self.qval_net.train()
         val_net_values = self.qval_net.forward(states, actions)
-        self.qval_net.optimizer.zero_grad()
         val_net_loss = F.mse_loss(targets, val_net_values)
+        self.qval_net.optimizer.zero_grad()
         val_net_loss.backward()
         self.qval_net.optimizer.step()
 
         self.qval_net.eval()
         self.act_net.train()
         mu = self.act_net.forward(states)
-        self.act_net.optimizer.zero_grad()
         actor_loss = torch.mean(-self.qval_net.forward(states, mu))
+        self.act_net.optimizer.zero_grad()
         actor_loss.backward()
         self.act_net.optimizer.step()
 

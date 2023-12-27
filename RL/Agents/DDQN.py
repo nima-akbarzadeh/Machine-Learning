@@ -74,7 +74,7 @@ class ReplayBuffer:
 
 
 class Agent:
-    def __init__(self, env, input_dims, n_actions, gamma, epsilon, update_time, n_episodes, lr=1e-3,
+    def __init__(self, env, input_dims, n_actions, gamma, update_time, epsilon, n_episodes, lr=1e-3,
                  batch_size=64, hidden1_dims=256, hidden2_dims=256, mem_size=100000, eps_min=0.01,
                  eps_dec=5e-4, chkpt_dir='./tmp/ddqn'):
         self.env = env
@@ -102,7 +102,7 @@ class Agent:
         if np.random.random() > self.epsilon:
             # Choose action according to the Q-network
             self.q_net.eval()
-            state = torch.tensor([observation]).to(self.q_net.device)
+            state = torch.tensor(observation).to(self.q_net.device)
             actions = self.q_net.forward(state)
             self.q_net.train()
             return torch.argmax(actions).item()
@@ -157,8 +157,8 @@ class Agent:
         q_targets = rewards + self.gamma * q_trg_[indices, actions_]
 
         # Compute the loss and backpropagate it through the network
-        self.optimizer.zero_grad()
         loss = self.loss(q_preds, q_targets).to(self.q_net.device)
+        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 

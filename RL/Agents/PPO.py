@@ -90,9 +90,10 @@ class PPOMemory:
         self.terminals = []
 
     def generate_batches(self):
-        n_states = len(self.states)
-        batch_start = np.arange(0, n_states, self.batch_size)
-        indices = np.arange(n_states, dtype=np.int64)
+        n_data = len(self.states)
+        batch_start = np.arange(0, n_data, self.batch_size)
+        # Shuffle the data
+        indices = np.arange(n_data, dtype=np.int64)
         np.random.shuffle(indices)
         batches = [indices[i:i + self.batch_size] for i in batch_start]
 
@@ -117,12 +118,12 @@ class PPOMemory:
 
 
 class Agent:
-    def __init__(self, env, input_dims, n_actions, gamma, gae_lambda,
+    def __init__(self, env, input_dims, n_actions, gamma, smoothing_lambda,
                  policy_clip, policy_horizon, n_epochs, n_episodes, lr=0.0003, batch_size=5,
                  hidden1_dims=256, hidden2_dims=256, chkpt_dir='./tmp/ppo'):
         self.env = env
         self.gamma = gamma
-        self.gae_lambda = gae_lambda
+        self.smoothing_lambda = smoothing_lambda
         self.policy_clip = policy_clip
         self.policy_horizon = policy_horizon
         self.n_epochs = n_epochs
@@ -139,15 +140,15 @@ class Agent:
     def choose_action(self, observation):
         self.act_net.eval()
         self.val_net.eval()
-        state = torch.tensor([observation], dtype=torch.float).to(self.act_net.device)
 
+        state = torch.tensor(observation, dtype=torch.float).to(self.act_net.device)
         dist = self.act_net(state)
         action = dist.sample()
-        logprobs = torch.squeeze(dist.log_prob(action)).item()
-        action = torch.squeeze(action).item()
+        logprobs = dist.log_prob(action).item()
+        action = action.item()
 
         value = self.val_net(state)
-        value = torch.squeeze(value).item()
+        value = value.item()
 
         self.act_net.train()
         self.val_net.train()
@@ -166,45 +167,46 @@ class Agent:
 
     def learn(self):
         for _ in range(self.n_epochs):
-            states_arr, actions_arr, old_probs_arr, vals_arr, rewards_arr, terminals_arr, batches \
+            states_arr, actions_arr, logprobs_arr, vals_arr, rewards_arr, terminals_arr, batches \
                 = self.memory.generate_batches()
 
-            values = vals_arr
+            # Compute the advantage for each step in the epoch
+            # Note the sequence of rewards_arr is not shuffled
             advantage = np.zeros(len(rewards_arr), dtype=np.float32)
-
             for t in range(len(rewards_arr) - 1):
                 discount = 1
                 a_t = 0
                 for k in range(t, len(rewards_arr) - 1):
-                    a_t += discount * (rewards_arr[k] + self.gamma * values[k + 1] *
-                                       (1 - int(terminals_arr[k])) - values[k])
-                    discount *= self.gamma * self.gae_lambda
+                    a_t += discount * (rewards_arr[k]
+                                       + self.gamma * vals_arr[k + 1] * (1 - int(terminals_arr[k]))
+                                       - vals_arr[k])
+                    discount *= self.gamma * self.smoothing_lambda
                 advantage[t] = a_t
             advantage = torch.tensor(advantage).to(self.act_net.device)
 
-            values = torch.tensor(values).to(self.act_net.device)
+            values = torch.tensor(vals_arr).to(self.act_net.device)
+
             for batch in batches:
                 states = torch.tensor(states_arr[batch], dtype=torch.float).to(self.act_net.device)
-                old_probs = torch.tensor(old_probs_arr[batch]).to(self.act_net.device)
                 actions = torch.tensor(actions_arr[batch]).to(self.act_net.device)
+                old_logprobs = torch.tensor(logprobs_arr[batch]).to(self.act_net.device)
 
-                dist = self.act_net(states)
-                critic_value = self.val_net(states)
-
-                critic_value = torch.squeeze(critic_value)
-
-                new_probs = dist.log_prob(actions)
-                prob_ratio = new_probs.exp() / old_probs.exp()
+                actor_dist = self.act_net(states)
+                new_logprobs = actor_dist.log_prob(actions)
+                prob_ratio = (new_logprobs - old_logprobs).exp()
                 weighted_probs = advantage[batch] * prob_ratio
                 weighted_clipped_probs = torch.clamp(prob_ratio, 1 - self.policy_clip,
                                                      1 + self.policy_clip) * advantage[batch]
                 actor_loss = -torch.min(weighted_probs, weighted_clipped_probs).mean()
 
+                critic_value = self.val_net(states)
+                critic_value = torch.squeeze(critic_value)
                 returns = advantage[batch] + values[batch]
                 critic_loss = (returns - critic_value) ** 2
                 critic_loss = critic_loss.mean()
 
                 total_loss = actor_loss + 0.5 * critic_loss
+
                 self.act_net.optimizer.zero_grad()
                 self.val_net.optimizer.zero_grad()
                 total_loss.backward()
