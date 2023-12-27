@@ -4,8 +4,8 @@ from RL.utils import plot_learning_scores
 
 if __name__ == '__main__':
     env = gym.make('LunarLanderContinuous-v2')
-    input_dims = [8]
-    n_actions = 2
+    input_dims = env.observation_space.shape
+    n_actions = env.action_space.shape[0]
     gamma = 0.99
 
     update_factor = 0.001

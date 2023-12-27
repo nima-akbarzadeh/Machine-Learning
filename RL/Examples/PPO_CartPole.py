@@ -5,15 +5,15 @@ from RL.utils import plot_learning_scores
 if __name__ == '__main__':
     env = gym.make('CartPole-v1')
     input_dims = env.observation_space.shape
-    n_actions = env.action_space.n
+    print(env.action_space)
+    n_actions = env.action_space.shape[0]
     gamma = 0.99
 
     gae_lambda = 0.95
     policy_clip = 0.2
     policy_horizon = 20
     n_epochs = 4
-
-    n_episodes = 50
+    n_episodes = 1000
     load_agent = False
 
     agent = Agent(env, input_dims, n_actions, gamma, gae_lambda,

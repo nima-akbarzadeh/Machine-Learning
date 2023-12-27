@@ -4,8 +4,8 @@ from RL.utils import plot_learning_curve
 
 if __name__ == '__main__':
     env = gym.make('LunarLander-v2')
-    input_dims = [8]
-    n_actions = 4
+    input_dims = env.observation_space.shape
+    n_actions = env.action_space.n
     gamma = 0.99
 
     epsilon = 1.0

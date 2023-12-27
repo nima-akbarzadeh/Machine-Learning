@@ -4,14 +4,15 @@ from RL.Agents.A3C import ActorCritic, SharedOptim, Agent
 
 if __name__ == '__main__':
     env = gym.make('CartPole-v1')
-    n_episodes = 1000
-    input_dims = [4]
-    n_actions = 2
+    input_dims = env.observation_space.shape
+    n_actions = env.action_space.n
     gamma = 0.99
+
     lr = 1e-4
     hidden_dims = 128
     update_time = 5
     load_agent = False
+    n_episodes = 1000
 
     global_actor_critic = ActorCritic(input_dims, n_actions, hidden_dims, f'a3c_cartepole',
                                       chkpt_dir='./tmp/a3c')
