@@ -15,8 +15,8 @@ if __name__ == '__main__':
     n_episodes = 1000
     load_agent = False
 
-    agent = Agent(env, input_dims, n_actions, gamma, gae_lambda,
-                  policy_clip, policy_horizon, n_epochs, n_episodes)
+    agent = Agent(env, input_dims, n_actions, gamma, gae_lambda, policy_clip, policy_horizon,
+                  n_epochs, n_episodes)
 
     if load_agent:
         agent.load_model()
