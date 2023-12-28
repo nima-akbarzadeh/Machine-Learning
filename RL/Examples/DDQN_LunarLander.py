@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
     epsilon = 1.0
     n_episodes = 50
-    update_time = 0.1 * n_episodes
+    update_time = int(0.1 * n_episodes)
     load_agent = False
 
     agent = Agent(env, input_dims, n_actions, gamma, update_time, epsilon, n_episodes)

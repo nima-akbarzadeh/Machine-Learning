@@ -203,8 +203,8 @@ class Agent(object):
         self.act_net.train()
         return noicy_action.cpu().detach().numpy()
 
-    def store_data(self, state, action, reward, new_state, done):
-        self.memory.store_data(state, action, reward, new_state, done)
+    def store_data(self, state, action, reward, new_state, terminal):
+        self.memory.store_data(state, action, reward, new_state, terminal)
 
     def save_model(self):
         self.act_net.save_checkpoint()
