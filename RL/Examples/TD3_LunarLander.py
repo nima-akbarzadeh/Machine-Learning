@@ -8,10 +8,10 @@ if __name__ == '__main__':
     n_actions = env.action_space.shape[0]
     gamma = 0.99
 
-    n_episodes = 1000
+    n_episodes = 100
     update_factor = 0.005
     update_actor_time = 2
-    warmup = 0.1 * n_episodes
+    warmup = int(0.1 * n_episodes)
     noise = 0.2
     load_agent = False
 

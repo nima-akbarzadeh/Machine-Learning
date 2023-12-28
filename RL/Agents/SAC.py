@@ -101,8 +101,8 @@ class ValueNetwork(nn.Module):
         self.checkpoint_dir = chkpt_dir
         self.checkpoint_file = os.path.join(chkpt_dir, filename)
 
-    def forward(self, state, action):
-        x = F.relu(self.fc1(torch.cat([state, action], dim=1)))
+    def forward(self, state):
+        x = F.relu(self.fc1(state))
         x = F.relu(self.fc2(x))
 
         return self.fc3(x)
@@ -151,7 +151,6 @@ class ReplayBuffer:
 
 
 class Agent:
-
     def __init__(self, env, input_dims, n_actions, gamma, update_factor, reward_scale,
                  reparam_noise, n_episodes, lr_actor=0.0003, lr_critic=0.0003, batch_size=64,
                  hidden1_dims=256, hidden2_dims=256, mem_size=100000, chkpt_dir='./tmp/sac'):
@@ -170,46 +169,45 @@ class Agent:
         self.memory = ReplayBuffer(mem_size, input_dims, n_actions)
 
         self.act_net = ActorNetwork(input_dims, n_actions, reparam_noise, hidden1_dims,
-                                    hidden2_dims, lr_actor, 'sac_actor_landlunar', chkpt_dir)
+                                    hidden2_dims, lr_actor, 'sac_actor_pendulum', chkpt_dir)
 
         self.qval1_net = CriticNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims, lr_critic,
-                                       'sac_critic1_landlunar', chkpt_dir)
+                                       'sac_critic1_pendulum', chkpt_dir)
         self.qval2_net = CriticNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims, lr_critic,
-                                       'sac_critic2_landlunar', chkpt_dir)
+                                       'sac_critic2_pendulum', chkpt_dir)
 
         self.val_net = ValueNetwork(input_dims, hidden1_dims, hidden2_dims, lr_critic,
-                                    'sac_value_landlunar', chkpt_dir)
+                                    'sac_value_pendulum', chkpt_dir)
         self.val_trg = ValueNetwork(input_dims, hidden1_dims, hidden2_dims, lr_critic,
-                                    'sac_value_landlunar', chkpt_dir)
+                                    'sac_value_pendulum', chkpt_dir)
 
         # Update the target network
         self.update_target_network()
 
-    def sample_normal(self, states, reparameterize=True):
-        mu, sigma = self.act_net.forward(states)
+    def sample_normal(self, state, reparameterize=True):
+        mu, sigma = self.act_net.forward(state)
         probabilities = Normal(mu, sigma)
 
         if reparameterize:
-            actions = probabilities.rsample()  # sample with noise
+            action = probabilities.rsample()  # sample with noise
         else:
-            actions = probabilities.sample()
+            action = probabilities.sample()
 
-        scaled_actions = torch.tanh(actions) * torch.tensor(self.max_action).to(self.act_net.device)
-        log_probs = probabilities.log_prob(actions) \
-                    - torch.log(1 - scaled_actions.pow(2) + self.reparam_noise)
-        log_probs = log_probs.sum(1, keepdim=True)
+        scaled_action = torch.tanh(action) * torch.tensor(self.max_action).to(self.act_net.device)
+        log_prob = probabilities.log_prob(action) \
+                   - torch.log(1 - scaled_action.pow(2) + self.reparam_noise)
 
-        return scaled_actions, log_probs.view(-1)
+        return scaled_action, log_prob.sum()
 
     def choose_action(self, observation):
         self.act_net.eval()
         state = torch.tensor(observation).to(self.act_net.device)
         actions, _ = self.sample_normal(state, reparameterize=False)
         self.act_net.train()
-        return actions.cpu().detach().numpy()[0]
+        return actions.cpu().detach().numpy()
 
-    def store_data(self, state, action, reward, new_state, done):
-        self.memory.store_data(state, action, reward, new_state, done)
+    def store_data(self, state, action, reward, new_state, terminal):
+        self.memory.store_data(state, action, reward, new_state, terminal)
 
     def update_target_network(self):
         val_net_dict = dict(self.val_net.named_parameters())
@@ -281,13 +279,13 @@ class Agent:
         self.act_net.eval()
         self.qval1_net.eval()
         self.qval2_net.eval()
-        actions, log_probs = self.sample_normal(states, reparameterize=False)
-        q_preds_new1 = self.qval1_net.forward(states, actions).view(-1)
-        q_preds_new2 = self.qval2_net.forward(states, actions).view(-1)
-        value_target = torch.min(q_preds_new1, q_preds_new2).view(-1) - log_probs
+        actions, log_probsum = self.sample_normal(states, reparameterize=False)
+        q_preds_new1 = self.qval1_net.forward(states, actions)
+        q_preds_new2 = self.qval2_net.forward(states, actions)
+        value_target = torch.min(q_preds_new1, q_preds_new2) - log_probsum
 
         # Compute the value loss
-        value_loss = 0.5 * F.mse_loss(value, value_target)
+        value_loss = 0.5 * F.mse_loss(value, value_target.view(-1))
 
         # Backpropagate
         self.val_net.optimizer.zero_grad()
@@ -298,10 +296,10 @@ class Agent:
         self.act_net.train()
         self.qval1_net.eval()
         self.qval2_net.eval()
-        actions, log_probs = self.sample_normal(states, reparameterize=True)
+        actions, log_probsum = self.sample_normal(states, reparameterize=True)
         q_preds_new1 = self.qval1_net.forward(states, actions)
         q_preds_new2 = self.qval2_net.forward(states, actions)
-        actor_loss = torch.mean(log_probs - torch.min(q_preds_new1, q_preds_new2).view(-1))
+        actor_loss = torch.mean(log_probsum - torch.min(q_preds_new1, q_preds_new2).view(-1))
 
         # Backpropagate
         self.act_net.optimizer.zero_grad()

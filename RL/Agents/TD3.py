@@ -164,8 +164,8 @@ class Agent:
 
         return noisy_action.cpu().detach().numpy()
 
-    def store_data(self, state, action, reward, new_state, done):
-        self.memory.store_data(state, action, reward, new_state, done)
+    def store_data(self, state, action, reward, new_state, terminal):
+        self.memory.store_data(state, action, reward, new_state, terminal)
 
     def save_model(self):
         self.act_net.save_checkpoint()
@@ -244,6 +244,8 @@ class Agent:
         terminals = torch.tensor(terminals).to(self.qval1_net.device)
 
         # Compute the current q-values
+        self.qval1_net.train()
+        self.qval2_net.train()
         q_preds1 = self.qval1_net.forward(states, actions)
         q_preds2 = self.qval2_net.forward(states, actions)
 
@@ -262,11 +264,18 @@ class Agent:
         self.qval1_net.optimizer.step()
         self.qval2_net.optimizer.step()
 
+        # Update the target network
+        self.update_target_network()
+
+        # Increase the episode counter
+        self.learner_step += 1
+
         # Check if the update_actor_time is arrived
         if self.learner_step % self.update_actor_time != 0:
             return
         else:
             # Compute the actor loss
+            self.qval1_net.eval()
             actor_q1_loss = self.qval1_net.forward(states, self.act_net.forward(states))
             actor_loss = -torch.mean(actor_q1_loss)
 
@@ -274,12 +283,6 @@ class Agent:
             self.act_net.optimizer.zero_grad()
             actor_loss.backward()
             self.act_net.optimizer.step()
-
-        # Update the target network
-        self.update_target_network()
-
-        # Increase the episode counter
-        self.learner_step += 1
 
     def train(self):
         scores = []
@@ -289,6 +292,7 @@ class Agent:
             observation = self.env.reset()[0]
             while not terminal:
                 action = self.choose_action(observation)
+                print(action)
                 observation_, reward, done, truncated, info = self.env.step(action)
                 score += reward
                 terminal = done or truncated
