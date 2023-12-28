@@ -261,9 +261,7 @@ class Agent:
         q_targets = self.get_targets(rewards, states_, terminals)
 
         # Compute the critic loss
-        critic_1_loss = 0.5 * F.mse_loss(q_targets, q_preds1)
-        critic_2_loss = 0.5 * F.mse_loss(q_targets, q_preds2)
-        critic_loss = critic_1_loss + critic_2_loss
+        critic_loss = 0.5 * F.mse_loss(q_targets, q_preds1) + 0.5 * F.mse_loss(q_targets, q_preds2)
 
         # Backpropagate
         self.qval1_net.optimizer.zero_grad()
