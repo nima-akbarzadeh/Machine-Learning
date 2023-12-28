@@ -98,6 +98,9 @@ class Agent:
         self.optimizer = optim.Adam(self.q_net.parameters(), lr=lr)
         self.loss = nn.MSELoss()
 
+        # Update the target network
+        self.update_target_network()
+
     def choose_action(self, observation):
         if np.random.random() > self.epsilon:
             # Choose action according to the Q-network
@@ -141,9 +144,6 @@ class Agent:
         if self.memory.mem_counter < self.batch_size:
             return
 
-        # Update the target network
-        self.update_target_network()
-
         # Sample memory and convert it to tensors
         states, actions, rewards, new_states, terminals = self.memory.sample_buffer(self.batch_size)
         states = torch.tensor(states).to(self.q_net.device)
@@ -168,6 +168,9 @@ class Agent:
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+
+        # Update the target network
+        self.update_target_network()
 
         # Increase the episode counter
         self.learner_step += 1

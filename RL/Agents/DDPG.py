@@ -191,6 +191,9 @@ class Agent(object):
         self.qval_trg = CriticNetwork(input_dims, n_actions, hidden1_dims, hidden2_dims, lr_critic,
                                       'ddpg_critic2_landlunar', chkpt_dir)
 
+        # Update the target network
+        self.update_target_network()
+
     def choose_action(self, observation):
         self.act_net.eval()
         observation = torch.tensor(observation, dtype=torch.float).to(self.act_net.device)
@@ -238,9 +241,8 @@ class Agent(object):
 
         # Compute the target values
         self.qval_trg.eval()
-        q_trg_ = self.qval_trg.forward(states_, actions_)
+        q_trg_ = self.qval_trg.forward(states_, actions_).view(-1)
         q_trg_[terminals] = 0.0
-        q_trg_ = q_trg_.view(-1)
         q_targets = rewards + self.gamma * q_trg_
 
         return q_targets.view(self.batch_size, 1)
@@ -249,9 +251,6 @@ class Agent(object):
         # Off-policy learning
         if self.memory.mem_counter < self.batch_size:
             return
-
-        # Update the target network
-        self.update_target_network()
 
         # Sample memory and convert it to tensors
         states, actions, rewards, new_states, terminals = self.memory.sample_buffer(self.batch_size)
