@@ -17,6 +17,12 @@ class Encoder(nn.Module):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
 
+        print('***************************')
+        print(f'input_size: {input_size}')
+        print(f'embedding_size: {embedding_size}')
+        print(f'hidden_size: {hidden_size}')
+        print(f'num_layers: {num_layers}')
+
         self.embedding = nn.Embedding(input_size, embedding_size)
         self.dropout = nn.Dropout(drop_prob)
         self.lstm = nn.LSTM(embedding_size, hidden_size, num_layers, dropout=drop_prob)
@@ -39,6 +45,9 @@ class Decoder(nn.Module):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
 
+        print('***************************')
+        print(f'output_size: {output_size}')
+
         self.embedding = nn.Embedding(input_size, embedding_size)
         self.dropout = nn.Dropout(drop_prob)
         self.lstm = nn.LSTM(embedding_size, hidden_size, num_layers, dropout=drop_prob)
@@ -55,10 +64,14 @@ class Decoder(nn.Module):
         output, (hidden, cell) = self.lstm(embedding, (hidden, cell))
         # output: (1, N, hidden_size)
 
+        print(f'decoder lstm output shape {output.shape}')
+
         prediction = self.fc(output)
         # prediction: (1, N, eng_vocabs_length)
 
-        return prediction.squeez(0), hidden, cell
+        print(f'decoder fc output shape {output.shape}')
+
+        return prediction.squeeze(0), hidden, cell
 
 
 class Seq2Seq(nn.Module):
@@ -68,22 +81,40 @@ class Seq2Seq(nn.Module):
         self.decoder = decoder
 
 
-    def forward(self, source, target, targrt_language, force_ratio=0.5):
+    def forward(self, source, target, target_language, force_ratio=0.5):
         target_len = target.shape[0]
-        batch_size = source.shape[0]
-        target_vocab_size = len(targrt_language.build_vocab)
+        batch_size = source.shape[1]
+        target_vocab_size = len(target_language.vocab)
         outputs = torch.zeros(target_len, batch_size, target_vocab_size).to(device)
 
+        print(f"=======================================")
+        print(f"source shape: {source.shape}")
+        print(f"target shape: {target.shape}")
+        print(f"target_vocab_size: {target_vocab_size}")
+
         hidden, cell = self.encoder(source)
+
+        print(f"encoder hidden shape: {hidden.shape}")
+        print(f"encoder cell shape: {cell.shape}")
+
         # Get the start token
         x = target[0]
 
-        for t in range(1, target_len):
+        print(f"start token shape: {x.shape}")
+        print(f"desired outputs shape: {outputs.shape}")
+
+        for t in range(target_len):
+
             output, hidden, cell = self.decoder(x, hidden, cell)
             # output: (N, eng_vocabs_length)
-            best_pred = output.argmax(1)
 
-            outputs[t] = output
+            print(f'----{t}')
+            print(f"decoder output shape: {output.shape}")
+            print(f"decoder hidden shape: {hidden.shape}")
+            print(f"decoder cell shape: {cell.shape}")
+
+            best_pred = output.argmax(1)
+            outputs[t, :, :] = output
 
             # The LSTM decoder predicts words one by one, and it does it sequentially based on the previous predicted word.
             # This dependency may not be good. Hence, to incease the randomness in the training phase we sometimes let the
