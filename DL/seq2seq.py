@@ -69,7 +69,7 @@ class Decoder(nn.Module):
         prediction = self.fc(output)
         # prediction: (1, N, eng_vocabs_length)
 
-        print(f'decoder fc output shape {output.shape}')
+        print(f'decoder fc output shape {prediction.shape}')
 
         return prediction.squeeze(0), hidden, cell
 
