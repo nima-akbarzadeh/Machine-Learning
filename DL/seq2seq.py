@@ -9,6 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from utils import bleu, save_checkpoint, load_checkpoint
 
 
+# Should get the whole input at once
 class Encoder(nn.Module):
     def __init__(self, input_size, embedding_size, hidden_size, num_layers, drop_prob):
         super(Encoder, self).__init__()
@@ -38,6 +39,7 @@ class Encoder(nn.Module):
         return hidden, cell
 
 
+# Should generate single words sequentially
 class Decoder(nn.Module):
     def __init__(self, input_size, embedding_size, hidden_size, output_size, num_layers, drop_prob):
         super(Decoder, self).__init__()
@@ -55,7 +57,7 @@ class Decoder(nn.Module):
 
     def forward(self, x, hidden, cell):
         # x: (N), Therefore, add one dimension to the input x for single word prediction at a time
-        x = x.unsqueeze(0)
+        x = x.unsqueeze(dim=0)
         # x: (1, N)
 
         embedding = self.dropout(self.embedding(x))
