@@ -1,5 +1,6 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.cluster import KMeans
 
 
 def calculate_similarity(text1, text2):
@@ -21,10 +22,6 @@ def calculate_similarity(text1, text2):
     similarity = similarity_matrix[0, 1]
 
     return similarity
-
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.cluster import KMeans
 
 
 def cluster_documents(documents, num_clusters=3):

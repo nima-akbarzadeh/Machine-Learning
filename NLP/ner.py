@@ -1,16 +1,5 @@
 import spacy
-spacy_model_en = spacy.load('en_core_web_sm')
-
 import re
-# Sample data for named entity recognition
-names = ["Apple", "Google"]
-locations = ["U.K.", "United Kingdom", "USA", "New York"]
-organizations = ["Apple", "Google", "Microsoft", "Amazon"]
-
-# Compile regular expressions for the entity categories
-name_pattern = re.compile(r'\b(' + '|'.join(names) + r')\b')
-location_pattern = re.compile(r'\b(' + '|'.join(locations) + r')\b')
-organization_pattern = re.compile(r'\b(' + '|'.join(organizations) + r')\b')
 
 
 def extract_entities_spacy(text):
@@ -58,6 +47,18 @@ def extract_entities_scratch(text):
 
 
 if __name__ == '__main__':
+
+    # load language model
+    spacy_model_en = spacy.load('en_core_web_sm')
+    # Sample data for named entity recognition
+    names = ["Apple", "Google"]
+    locations = ["U.K.", "United Kingdom", "USA", "New York"]
+    organizations = ["Apple", "Google", "Microsoft", "Amazon"]
+
+    # Compile regular expressions for the entity categories
+    name_pattern = re.compile(r'\b(' + '|'.join(names) + r')\b')
+    location_pattern = re.compile(r'\b(' + '|'.join(locations) + r')\b')
+    organization_pattern = re.compile(r'\b(' + '|'.join(organizations) + r')\b')
 
     # Example usage
     text = "Apple is looking at buying U.K. startup for $1 billion."
