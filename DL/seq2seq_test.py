@@ -66,7 +66,6 @@ class Seq2Seq(nn.Module):
 
         target_len = target_text.shape[0]
         batch_size = source_text.shape[1]
-        output_size = output_size
         outputs = torch.zeros(target_len, batch_size, output_size).to(device)
 
         x = target_text[0]
